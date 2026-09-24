@@ -1,0 +1,495 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		16A8DE98F906BBCA631503A2 /* PictureAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C15F6539EA077B818496EFE /* PictureAppApp.swift */; };
+		224B8EE6D39FF33D0DDEF3EE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4370B253D4824A6E8BBFDF39 /* Assets.xcassets */; };
+		28357FE8C7C33497B8975CCE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 875AC5104DE47221CB8709D0 /* Assets.xcassets */; };
+		37B05B38205AE38680AE60B4 /* PictureAppCore in Frameworks */ = {isa = PBXBuildFile; productRef = 61800683A458CDE79D953AC1 /* PictureAppCore */; };
+		4BF2D0FFBA3E3FE49689DAA7 /* PictureAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF5BA2B1832CB4D82FE669D /* PictureAppApp.swift */; };
+		604505E9B6970AD4044C0043 /* PictureAppCore in Frameworks */ = {isa = PBXBuildFile; productRef = E824198A277851CFFF89B0BC /* PictureAppCore */; };
+		D6911544AC434F18215ACF85 /* MacImageExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6F0201DB3A2F262C891AA0 /* MacImageExporter.swift */; };
+		E24FBC4BA37A41A782660E00 /* IOSImageExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A3C53B2882E2EB6B47F2D5 /* IOSImageExporter.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		4370B253D4824A6E8BBFDF39 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		54A3C53B2882E2EB6B47F2D5 /* IOSImageExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSImageExporter.swift; sourceTree = "<group>"; };
+		5A6F0201DB3A2F262C891AA0 /* MacImageExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacImageExporter.swift; sourceTree = "<group>"; };
+		6C15F6539EA077B818496EFE /* PictureAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureAppApp.swift; sourceTree = "<group>"; };
+		6DF5BA2B1832CB4D82FE669D /* PictureAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureAppApp.swift; sourceTree = "<group>"; };
+		875AC5104DE47221CB8709D0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		92AE3260FD0EDE7FC022AAA6 /* PictureAppCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PictureAppCore; path = Packages/PictureAppCore; sourceTree = SOURCE_ROOT; };
+		A0035891464E884516D39CDA /* PictureApp-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "PictureApp-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E3126A16FE9F1A1714972960 /* PictureApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PictureApp.entitlements; sourceTree = "<group>"; };
+		F36BB5CC71998E83CC1227AD /* PictureApp-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "PictureApp-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		07E2AAD10BED358C667773E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				604505E9B6970AD4044C0043 /* PictureAppCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A15456486CAE07133E6C19D9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				37B05B38205AE38680AE60B4 /* PictureAppCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0F7A526510755760B843CC10 /* macOS */ = {
+			isa = PBXGroup;
+			children = (
+				4370B253D4824A6E8BBFDF39 /* Assets.xcassets */,
+				5A6F0201DB3A2F262C891AA0 /* MacImageExporter.swift */,
+				E3126A16FE9F1A1714972960 /* PictureApp.entitlements */,
+				6DF5BA2B1832CB4D82FE669D /* PictureAppApp.swift */,
+			);
+			path = macOS;
+			sourceTree = "<group>";
+		};
+		1E448D930583614CFF881380 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				92AE3260FD0EDE7FC022AAA6 /* PictureAppCore */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		2B9970E4AAC191C4D0836564 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F36BB5CC71998E83CC1227AD /* PictureApp-iOS.app */,
+				A0035891464E884516D39CDA /* PictureApp-macOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		712153F7E128CB7B3E1E5D62 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				8476129639E1F92CE60239CD /* iOS */,
+				0F7A526510755760B843CC10 /* macOS */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		7455B93A92064894C163DD0D = {
+			isa = PBXGroup;
+			children = (
+				712153F7E128CB7B3E1E5D62 /* App */,
+				1E448D930583614CFF881380 /* Packages */,
+				2B9970E4AAC191C4D0836564 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8476129639E1F92CE60239CD /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				875AC5104DE47221CB8709D0 /* Assets.xcassets */,
+				54A3C53B2882E2EB6B47F2D5 /* IOSImageExporter.swift */,
+				6C15F6539EA077B818496EFE /* PictureAppApp.swift */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0884008922400BA8F048993C /* PictureApp-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7D4805EA6A72FADC2A532A20 /* Build configuration list for PBXNativeTarget "PictureApp-iOS" */;
+			buildPhases = (
+				8CCDF750ECED7C85FBE9D8A4 /* Sources */,
+				6AB2B73CA6963A1D7630F414 /* Resources */,
+				A15456486CAE07133E6C19D9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "PictureApp-iOS";
+			packageProductDependencies = (
+				61800683A458CDE79D953AC1 /* PictureAppCore */,
+			);
+			productName = "PictureApp-iOS";
+			productReference = F36BB5CC71998E83CC1227AD /* PictureApp-iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		6867AF37E4F6D91E48AFFD3F /* PictureApp-macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0C826A1D4402B5DDFAB579C2 /* Build configuration list for PBXNativeTarget "PictureApp-macOS" */;
+			buildPhases = (
+				79739D1D0FF2DD999934C20C /* Sources */,
+				5345EF69F428EB173BC6F7A8 /* Resources */,
+				07E2AAD10BED358C667773E8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "PictureApp-macOS";
+			packageProductDependencies = (
+				E824198A277851CFFF89B0BC /* PictureAppCore */,
+			);
+			productName = "PictureApp-macOS";
+			productReference = A0035891464E884516D39CDA /* PictureApp-macOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0844B977CB2931068BCE3584 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0884008922400BA8F048993C = {
+						ProvisioningStyle = Automatic;
+					};
+					6867AF37E4F6D91E48AFFD3F = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = BF577CF8CB905511053EBF2B /* Build configuration list for PBXProject "PictureApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 7455B93A92064894C163DD0D;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4E1C432629F5DEB40D40949C /* XCLocalSwiftPackageReference "Packages/PictureAppCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 2B9970E4AAC191C4D0836564 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6867AF37E4F6D91E48AFFD3F /* PictureApp-macOS */,
+				0884008922400BA8F048993C /* PictureApp-iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5345EF69F428EB173BC6F7A8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				224B8EE6D39FF33D0DDEF3EE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6AB2B73CA6963A1D7630F414 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				28357FE8C7C33497B8975CCE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		79739D1D0FF2DD999934C20C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6911544AC434F18215ACF85 /* MacImageExporter.swift in Sources */,
+				4BF2D0FFBA3E3FE49689DAA7 /* PictureAppApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8CCDF750ECED7C85FBE9D8A4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E24FBC4BA37A41A782660E00 /* IOSImageExporter.swift in Sources */,
+				16A8DE98F906BBCA631503A2 /* PictureAppApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		087538818DF8DAB2C45ECC1D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
+				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "PictureApp sparar den bearbetade bilden i ditt Foton-bibliotek.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp.ios;
+				PRODUCT_NAME = PictureApp;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		265551CEA2609EDF6988EB9D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		2F7F3BAAFF8C497CAC6A3CBD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/macOS/PictureApp.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
+				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp;
+				PRODUCT_NAME = PictureApp;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		57E6B4C556B53EB628DC7018 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		8F30E28D562A98DB20F6AA14 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
+				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "PictureApp sparar den bearbetade bilden i ditt Foton-bibliotek.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp.ios;
+				PRODUCT_NAME = PictureApp;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		96759F5EB0782DEEA9434A22 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/macOS/PictureApp.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
+				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp;
+				PRODUCT_NAME = PictureApp;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0C826A1D4402B5DDFAB579C2 /* Build configuration list for PBXNativeTarget "PictureApp-macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				96759F5EB0782DEEA9434A22 /* Debug */,
+				2F7F3BAAFF8C497CAC6A3CBD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7D4805EA6A72FADC2A532A20 /* Build configuration list for PBXNativeTarget "PictureApp-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				087538818DF8DAB2C45ECC1D /* Debug */,
+				8F30E28D562A98DB20F6AA14 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BF577CF8CB905511053EBF2B /* Build configuration list for PBXProject "PictureApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				57E6B4C556B53EB628DC7018 /* Debug */,
+				265551CEA2609EDF6988EB9D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		4E1C432629F5DEB40D40949C /* XCLocalSwiftPackageReference "Packages/PictureAppCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/PictureAppCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		61800683A458CDE79D953AC1 /* PictureAppCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PictureAppCore;
+		};
+		E824198A277851CFFF89B0BC /* PictureAppCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PictureAppCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 0844B977CB2931068BCE3584 /* Project object */;
+}

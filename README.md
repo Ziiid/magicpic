@@ -1,18 +1,25 @@
 # PictureApp
 
-En enkel macOS-app för att söka efter bilder, ta bort bakgrunden med ett
-klick och spara resultatet.
+En app för att söka efter bilder, ta bort/byta bakgrund med ett klick och
+spara resultatet. Xcode-projekt med två mål: **PictureApp-macOS** och
+**PictureApp-iOS**, som delar all affärslogik.
 
 ## Funktioner
 
-- **Sökning** – växla mellan "Webb" (bildsökning via Unsplash) och "Foton"
-  (ditt lokala Foton-bibliotek). Sökningen visar flera alternativa
-  träffar i ett rutnät.
-- **Ta bort bakgrund** – helt på enheten med Apples Vision-ramverk
+- **Skaffa en bild** – antingen sök på webben (Unsplash), välj en bild från
+  Foton via systemets egen bildväljare, ta en ny bild med kameran, eller dra
+  in en bildfil direkt (Finder/Bilder/webbläsare).
+- **Ta bort/byta bakgrund** – helt på enheten med Apples Vision-ramverk
   (`VNGenerateForegroundInstanceMaskRequest`). Ingen nätuppkoppling eller
-  extern tjänst behövs, och det är normalt klart på under en sekund.
-- **Spara** – spara vald bild (med eller utan bakgrund) som PNG var du vill
-  på datorn.
+  extern tjänst behövs. Bakgrunden kan vara transparent, en färg, en
+  oskärpa av originalet, eller en egen bild (som går att panorera/zooma).
+- **Finjustera urklippet för hand** – pensel för att lägga till eller ta
+  bort delar av masken, med zoom/pan för precision (t.ex. hårstrån Vision
+  missade).
+- **Formbeskärning** – klipp slutbilden till kvadrat, cirkel, avrundad
+  kvadrat, hexagon eller oktagon.
+- **Spara** – exportera som PNG (NSSavePanel på Mac, till Foton-biblioteket
+  på iOS).
 
 ## Krav för webbsökning: Unsplash Access Key
 
@@ -26,72 +33,68 @@ Ingen kreditkorts- eller Cloud Console-uppsättning krävs, bara ett konto.
    ge appen ett namn (t.ex. "PictureApp").
 3. Kopiera värdet **"Access Key"** som visas på appens sida.
 4. Starta PictureApp, klicka på kugghjulet bredvid sökfältet och klistra in
-   Access Key. Den sparas krypterat i macOS nyckelring.
+   Access Key. Den sparas krypterat i macOS/iOS nyckelring.
 
 _Tidigare användes Google Custom Search, men det krävde en omständlig
 uppsättning via Google Cloud Console. Bing Image Search API är inte
 längre ett alternativ - Microsoft stängde hela Bing Search API-familjen
 den 11 augusti 2025._
 
-## Om den lokala Foton-sökningen
+## Om "Egen bild"
 
-Apples publika ramverk för Foton (PhotoKit) erbjuder inte fri
-innehållsbaserad sökning som "hitta bilder med en hund" – den funktionen
-är intern i Foton-appen och inte tillgänglig för tredjepartsappar. Den
-lokala sökningen i PictureApp matchar istället mot **filnamn** och
-**albumnamn**. En tom sökning visar dina senaste bilder.
-
-Första gången du söker i Foton frågar macOS om behörighet – godkänn det
-för att appen ska kunna visa dina bilder.
+Att välja en bild från Foton går via systemets inbyggda bildväljare
+(`PhotosPicker`), inte en egen sökning i biblioteket – appen ber aldrig om
+full åtkomst till Foton-biblioteket, bara till den enskilda bild du själv
+väljer. Det ersatte en tidigare egenbyggd filnamns-/albumsökning i Foton,
+som togs bort eftersom en riktig bildväljare (som i bilder-appar typ
+SayFrame) är både enklare att använda och mer privat.
 
 ## Bygga och köra
 
-Kräver Xcode Command Line Tools (redan installerat) – ingen fullständig
-Xcode-installation behövs.
-
-### Snabb utveckling
+Kräver fullständig Xcode (inte bara Command Line Tools) och
+[XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```bash
-./run.sh
+open PictureApp.xcodeproj
 ```
 
-Bygger och startar appen direkt via Swift Package Manager. Bra för snabb
-iteration under utveckling.
+Välj schemat `PictureApp-macOS` eller `PictureApp-iOS` och kör (⌘R) från
+Xcode. Signering sköts automatiskt (`Automatic signing`) – välj ditt Team
+under **Signing & Capabilities** första gången.
 
-### Skapa en riktig .app att dubbelklicka på
+Projektet genereras från `project.yml` via XcodeGen, inte handredigerat.
+Kör om följande efter ändringar i `project.yml`, eller när filer/mappar
+läggs till eller tas bort under `App/macOS` eller `App/iOS`:
 
 ```bash
-./build.sh
-open PictureApp.app
+xcodegen generate
 ```
-
-Detta bygger en release-version, paketerar den som `PictureApp.app` och
-signerar den ad-hoc (lokalt, utan Apple-utvecklarkonto) så att den kan
-begära Foton-behörighet korrekt. Du kan dra `PictureApp.app` till din
-`Program`-mapp eller Dock.
-
-**Obs:** eftersom appen är ad-hoc-signerad (inte med ett riktigt
-utvecklarcertifikat) kan macOS be om Foton-behörighet på nytt varje gång
-du bygger om appen. Det är en engångsklickning per bygge, inget att oroa
-sig för.
 
 ## Projektstruktur
 
 ```
-Sources/PictureApp/
-  PictureAppApp.swift        – app-startpunkt
-  ContentView.swift          – huvudvy: sökfält + rutnät + detaljpanel
-  ResultThumbnail.swift      – en bildruta i sökresultaten
-  DetailPanel.swift          – förhandsvisning + knappar för bakgrund/spara
-  SettingsView.swift         – inställningar för Unsplash Access Key
-  SearchViewModel.swift      – all state och logik
-  Models/                    – datamodeller
-  Services/
-    UnsplashImageSearchService.swift  – webbsökning via Unsplash
-    PhotosSearchService.swift         – sökning i Foton-biblioteket
-    BackgroundRemovalService.swift    – bakgrundsborttagning (Vision)
-  Support/
-    SettingsStore.swift      – lagrar inställningar
-    KeychainHelper.swift     – säker lagring av API-nyckel i nyckelringen
-    NSImage+PNG.swift        – hjälpfunktion för att exportera PNG
+project.yml                        – XcodeGen-spec, genererar PictureApp.xcodeproj
+Packages/PictureAppCore/           – delad Swift-paket-modul
+  Sources/PictureAppCore/
+    Models/                        – datamodeller (SearchResultItem, BackgroundOption, OutputShape, CanvasTransform)
+    Services/
+      UnsplashImageSearchService.swift  – webbsökning via Unsplash
+      BackgroundRemovalService.swift    – bakgrundsborttagning/-byte (Vision)
+      ShapeCropService.swift            – formbeskärning av slutbilden
+    Support/
+      SettingsStore.swift          – lagrar inställningar
+      KeychainHelper.swift         – säker lagring av API-nyckel i nyckelringen
+      PlatformImage.swift          – NSImage/UIImage-brygga för delad kod
+      PlatformColor.swift          – NSColor/UIColor-brygga (SwiftUI Color -> CGColor)
+      ImageExporter.swift          – protokoll för plattformsspecifikt sparande
+      EditableMask.swift           – muterbar mask för penselverktyget
+    ViewModels/
+      SearchViewModel.swift        – all state och logik
+    Views/                         – ContentView, ResultThumbnail, DetailPanel, SettingsView,
+                                      BackgroundPositionerView, MaskEditorView, CameraCaptureView
+App/
+  macOS/                           – app-entry + NSSavePanel-baserad export
+  iOS/                             – app-entry + export till Foton-biblioteket
 ```
+
+Se [CLAUDE.md](CLAUDE.md) för arbetsregler och funktions-roadmap.
