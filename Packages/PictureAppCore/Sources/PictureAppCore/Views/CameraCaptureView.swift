@@ -52,7 +52,7 @@ private struct CameraRepresentable: UIViewControllerRepresentable {
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             if let image = info[.originalImage] as? UIImage {
-                onCapture(image)
+                onCapture(image.normalizedOrientation())
             } else {
                 onCancel()
             }
@@ -179,7 +179,7 @@ private final class MacCameraModel: NSObject, ObservableObject {
 
 extension MacCameraModel: AVCapturePhotoCaptureDelegate {
     nonisolated func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        let image = photo.fileDataRepresentation().flatMap { NSImage(data: $0) }
+        let image = photo.fileDataRepresentation().flatMap { PlatformImage.normalizedOrientation(from: $0) }
         Task { @MainActor in
             self.captureCompletion?(image)
             self.captureCompletion = nil

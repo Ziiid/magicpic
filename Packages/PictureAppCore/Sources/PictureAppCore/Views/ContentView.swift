@@ -81,7 +81,7 @@ public struct ContentView: View {
     private func loadPickedPhoto(_ item: PhotosPickerItem) async {
         do {
             guard let data = try await item.loadTransferable(type: Data.self),
-                  let image = PlatformImage(data: data) else {
+                  let image = PlatformImage.normalizedOrientation(from: data) else {
                 viewModel.errorMessage = "Kunde inte läsa den valda bilden."
                 return
             }
@@ -126,12 +126,6 @@ public struct ContentView: View {
                 .help("Unsplash API-inställningar")
             } else {
                 Spacer()
-
-                Button {
-                    showImageSourceDialog = true
-                } label: {
-                    Label("Välj bild…", systemImage: "photo.badge.plus")
-                }
             }
         }
         .padding(12)
@@ -186,6 +180,8 @@ public struct ContentView: View {
                 Text(error)
                     .foregroundStyle(.secondary)
                     .padding()
+            } else if viewModel.results.isEmpty && !viewModel.isSearching {
+                welcomePlaceholder
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
                 ForEach(viewModel.results) { item in
@@ -196,6 +192,28 @@ public struct ContentView: View {
             .padding(12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Visas på den annars helt tomma ytan innan man sökt efter något -
+    /// bara en logga/rubrik gjorde det tydligt att appen faktiskt startat
+    /// (rapporterat 2026-09-25, upplevdes som en "svart tom canvas").
+    private var welcomePlaceholder: some View {
+        VStack(spacing: 16) {
+            Image("AppLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 96, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
+
+            Text("PictureApp")
+                .font(.title2.weight(.semibold))
+
+            Text("Sök efter bilder ovan för att komma igång.")
+                .foregroundStyle(.secondary)
+        }
+        .padding(.top, 60)
+        .frame(maxWidth: .infinity)
     }
 
     /// Tar emot en bild som dragits in från Finder, Bilder eller en
@@ -220,7 +238,7 @@ public struct ContentView: View {
             // `_ObjectiveCBridgeable`-fel.
             _ = provider.loadObject(ofClass: PlatformImage.self as NSItemProviderReading.Type) { reading, _ in
                 guard let image = reading as? PlatformImage else { return }
-                Task { @MainActor in viewModel.loadImportedImage(image, name: "Importerad bild") }
+                Task { @MainActor in viewModel.loadImportedImage(image.normalizedOrientation(), name: "Importerad bild") }
             }
             return true
         }

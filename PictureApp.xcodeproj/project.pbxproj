@@ -25,9 +25,9 @@
 		6DF5BA2B1832CB4D82FE669D /* PictureAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureAppApp.swift; sourceTree = "<group>"; };
 		875AC5104DE47221CB8709D0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		92AE3260FD0EDE7FC022AAA6 /* PictureAppCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PictureAppCore; path = Packages/PictureAppCore; sourceTree = SOURCE_ROOT; };
-		A0035891464E884516D39CDA /* PictureApp-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "PictureApp-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0035891464E884516D39CDA /* PictureApp-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "PictureApp-macOS.app"; path = PictureApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E3126A16FE9F1A1714972960 /* PictureApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PictureApp.entitlements; sourceTree = "<group>"; };
-		F36BB5CC71998E83CC1227AD /* PictureApp-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "PictureApp-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F36BB5CC71998E83CC1227AD /* PictureApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PictureApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,7 +72,7 @@
 		2B9970E4AAC191C4D0836564 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				F36BB5CC71998E83CC1227AD /* PictureApp-iOS.app */,
+				F36BB5CC71998E83CC1227AD /* PictureApp.app */,
 				A0035891464E884516D39CDA /* PictureApp-macOS.app */,
 			);
 			name = Products;
@@ -126,7 +126,7 @@
 				61800683A458CDE79D953AC1 /* PictureAppCore */,
 			);
 			productName = "PictureApp-iOS";
-			productReference = F36BB5CC71998E83CC1227AD /* PictureApp-iOS.app */;
+			productReference = F36BB5CC71998E83CC1227AD /* PictureApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 		6867AF37E4F6D91E48AFFD3F /* PictureApp-macOS */ = {
@@ -235,6 +235,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 3873522W2D;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
 				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
@@ -404,6 +405,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 3873522W2D;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
 				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";

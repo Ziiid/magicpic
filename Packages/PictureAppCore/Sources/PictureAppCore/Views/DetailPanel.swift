@@ -5,6 +5,8 @@ struct DetailPanel: View {
     @ObservedObject var viewModel: SearchViewModel
     @State private var showBackgroundImporter = false
     @State private var showColorPicker = false
+    @State private var showAdjustments = false
+    @State private var showPhotoFilters = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -12,13 +14,27 @@ struct DetailPanel: View {
                 if viewModel.isLoadingDetail {
                     ProgressView("Laddar bild…")
                         .padding(40)
-                } else if let image = viewModel.processedImage ?? viewModel.originalImage {
-                    Image(platformImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .background(CheckerboardBackground())
-                        .cornerRadius(8)
+                } else if let original = viewModel.originalImage {
+                    // Alltid den inbäddade, dra-/nyp-/vridbara ramningsytan -
+                    // inget separat "justera position"-läge att växla till.
+                    // Källan är den bakgrundskompositerade bilden när den
+                    // finns (så vald bakgrund syns medan man justerar,
+                    // istället för att se ut som att bakgrunden "kommer
+                    // tillbaka"), annars det obehandlade originalet.
+                    VStack(spacing: 8) {
+                        SubjectFramingCanvas(
+                            image: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
+                            shape: viewModel.outputShape,
+                            aspectRatio: viewModel.outputShape == .rectangle ? previewAspectRatio : 1,
+                            transform: $viewModel.outputShapeTransform,
+                            onCommit: { viewModel.commitOutputShapeTransform() }
+                        )
                         .padding()
+
+                        Text("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 } else {
                     Text("Kunde inte ladda bilden.")
                         .foregroundStyle(.secondary)
@@ -36,26 +52,46 @@ struct DetailPanel: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
-                    Button {
-                        viewModel.removeBackground()
-                    } label: {
-                        if viewModel.isProcessing {
-                            HStack {
-                                ProgressView().controlSize(.small)
-                                Text("Bearbetar…")
-                            }
-                        } else {
-                            Label(
-                                viewModel.processedImage == nil ? "Ta bort bakgrund" : "Uppdatera",
-                                systemImage: "person.crop.rectangle.badge.xmark"
-                            )
+                    // Ingen egen "Ta bort bakgrund"-knapp - "Ingen
+                    // (genomskinlig)" under Bakgrund-menyn gör exakt samma
+                    // sak, en egen knapp för det var bara en dubblett
+                    // (rapporterat 2026-09-25).
+                    if viewModel.isProcessing {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text("Bearbetar…")
                         }
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
                     }
-                    .disabled(viewModel.originalImage == nil || viewModel.isProcessing)
+
+                    Button {
+                        viewModel.restoreOriginal()
+                    } label: {
+                        Label("Återställ", systemImage: "arrow.uturn.backward")
+                    }
+                    .disabled(!hasChanges)
+                    .help("Kasta bakgrunds-/form-/positioneringsval och gå tillbaka till originalbilden.")
 
                     backgroundMenu
 
                     shapeMenu
+
+                    Button {
+                        showPhotoFilters = true
+                    } label: {
+                        Label("Filter", systemImage: "camera.filters")
+                    }
+                    .disabled(viewModel.originalImage == nil)
+                    .help("Färdiga bildstilar - svartvitt, sepia, röntgen, m.fl.")
+
+                    Button {
+                        showAdjustments = true
+                    } label: {
+                        Label("Justera", systemImage: "slider.horizontal.3")
+                    }
+                    .disabled(viewModel.originalImage == nil)
+                    .help("Ljusstyrka, kontrast, mättnad, skärpa, temperatur, highlights/shadows, brusreducering, vinjett.")
 
                     Button {
                         viewModel.beginMaskEditing()
@@ -86,12 +122,33 @@ struct DetailPanel: View {
             }
         }
         .sheet(item: $viewModel.backgroundPositioningRequest) { request in
-            BackgroundPositionerView(
+            ImagePositionerView(
+                title: "Justera bakgrundsbilden",
+                subtitle: "Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera.",
                 image: request.image,
                 previewAspectRatio: previewAspectRatio,
+                clipShape: AnyShape(Rectangle()),
+                doneLabel: "Använd bakgrund",
                 initialTransform: request.initialTransform,
                 onDone: { transform in viewModel.confirmCustomBackground(image: request.image, transform: transform) },
                 onCancel: { viewModel.cancelCustomBackgroundPositioning() }
+            )
+        }
+        .sheet(isPresented: $showPhotoFilters) {
+            if let original = viewModel.originalImage {
+                PhotoFilterPickerView(
+                    baseImage: original,
+                    currentFilter: viewModel.photoFilter,
+                    onSelect: { viewModel.setPhotoFilter($0) },
+                    onDone: { showPhotoFilters = false }
+                )
+            }
+        }
+        .sheet(isPresented: $showAdjustments) {
+            ImageAdjustmentsView(
+                adjustments: viewModel.imageAdjustments,
+                onChange: { viewModel.setImageAdjustments($0) },
+                onDone: { showAdjustments = false }
             )
         }
         .sheet(item: $viewModel.maskEditingRequest) { request in
@@ -107,8 +164,30 @@ struct DetailPanel: View {
                 Text("Bakgrundsfärg")
                     .font(.headline)
 
+                // Vanliga färger direkt klickbara - innan krävdes ett extra
+                // klick på ColorPicker-swatchen för att öppna systemets
+                // färgpanel bara för att välja en vanlig färg (rapporterat
+                // 2026-09-25).
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
+                    ForEach(Self.presetColors, id: \.self) { color in
+                        Button {
+                            viewModel.setBackgroundStyle(.color(color))
+                            showColorPicker = false
+                        } label: {
+                            Circle()
+                                .fill(color)
+                                .frame(width: 32, height: 32)
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
+                                .overlay(Circle().strokeBorder(Color.accentColor, lineWidth: isSelectedColor(color) ? 3 : 0))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Divider()
+
                 ColorPicker(
-                    "Färg",
+                    "Fler färger…",
                     selection: Binding(
                         get: {
                             if case .color(let color) = viewModel.backgroundStyle { return color }
@@ -118,7 +197,6 @@ struct DetailPanel: View {
                     ),
                     supportsOpacity: false
                 )
-                .labelsHidden()
 
                 HStack {
                     Spacer()
@@ -127,13 +205,35 @@ struct DetailPanel: View {
                 }
             }
             .padding(24)
-            .frame(minWidth: 280, minHeight: 160)
+            .frame(minWidth: 320, minHeight: 280)
         }
+    }
+
+    private static let presetColors: [Color] = [
+        .white, .black, .gray, .red, .orange, .yellow,
+        .green, .mint, .teal, .blue, .purple, .pink,
+    ]
+
+    private func isSelectedColor(_ color: Color) -> Bool {
+        if case .color(let current) = viewModel.backgroundStyle { return current == color }
+        return false
     }
 
     private var previewAspectRatio: CGFloat {
         guard let size = viewModel.originalImage?.size, size.width > 0, size.height > 0 else { return 1 }
         return size.width / size.height
+    }
+
+    /// Sant om något finns att återställa - annars är "Återställ" bara en
+    /// förvirrande knapp som inte gör något.
+    private var hasChanges: Bool {
+        viewModel.processedImage != nil
+            || viewModel.compositedImage != nil
+            || viewModel.outputShapeTransform != .identity
+            || viewModel.backgroundStyle != .transparent
+            || viewModel.outputShape != .square
+            || viewModel.photoFilter != .none
+            || viewModel.imageAdjustments != .identity
     }
 
     private var hasCustomBackground: Bool {
@@ -193,6 +293,26 @@ struct DetailPanel: View {
             Label("Form", systemImage: "square.on.circle")
         }
         .disabled(viewModel.originalImage == nil)
+    }
+}
+
+/// Motivets ramning: dra/zooma/vrida är verksamt direkt när bilden laddats
+/// in, inte gated bakom att välja bort bakgrund/byta bakgrund - se
+/// `SearchViewModel.outputShape`s standardvärde (`.square`, inte
+/// `.rectangle`) för varför det alltid finns en ram att positionera inom
+/// från start.
+private struct SubjectFramingCanvas: View {
+    let image: PlatformImage
+    let shape: OutputShape
+    let aspectRatio: CGFloat
+    @Binding var transform: CanvasTransform
+    let onCommit: () -> Void
+
+    var body: some View {
+        ManipulableImageView(image: image, clipShape: shape.swiftUIShape, transform: $transform, onCommit: onCommit)
+            .aspectRatio(aspectRatio, contentMode: .fit)
+            .background(CheckerboardBackground())
+            .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

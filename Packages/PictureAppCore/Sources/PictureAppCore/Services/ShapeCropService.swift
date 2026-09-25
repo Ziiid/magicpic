@@ -13,7 +13,10 @@ public struct ShapeCropService {
 
     public init() {}
 
-    public func apply(_ shape: OutputShape, to image: PlatformImage) throws -> PlatformImage {
+    /// - Parameter transform: Användarens pan/zoom av motivet inom den
+    ///   kvadratiska duken, satt via `ImagePositionerView`. `.identity` ger
+    ///   en centrerad kvadratisk beskärning, precis som tidigare.
+    public func apply(_ shape: OutputShape, to image: PlatformImage, transform: CanvasTransform = .identity) throws -> PlatformImage {
         guard shape != .rectangle else { return image }
 
         guard let cgImage = image.cgImageRepresentation else {
@@ -21,12 +24,9 @@ public struct ShapeCropService {
         }
 
         let original = CIImage(cgImage: cgImage)
-        let squareExtent = Self.centeredSquare(in: original.extent)
-        let squared = original
-            .cropped(to: squareExtent)
-            .transformed(by: CGAffineTransform(translationX: -squareExtent.minX, y: -squareExtent.minY))
-        let side = squareExtent.width
+        let side = min(original.extent.width, original.extent.height)
         let canvasSize = CGSize(width: side, height: side)
+        let squared = transform.scaledToFill(original, target: CGRect(origin: .zero, size: canvasSize))
 
         guard shape != .square else {
             return try Self.render(squared, size: canvasSize)
@@ -47,16 +47,6 @@ public struct ShapeCropService {
             throw ShapeError(message: "Kunde inte tillämpa formen.")
         }
         return try Self.render(output, size: canvasSize)
-    }
-
-    private static func centeredSquare(in extent: CGRect) -> CGRect {
-        let side = min(extent.width, extent.height)
-        return CGRect(
-            x: extent.minX + (extent.width - side) / 2,
-            y: extent.minY + (extent.height - side) / 2,
-            width: side,
-            height: side
-        )
     }
 
     private static func render(_ ciImage: CIImage, size: CGSize) throws -> PlatformImage {
@@ -82,46 +72,8 @@ public struct ShapeCropService {
         context.setFillColor(gray: 0, alpha: 1)
         context.fill(rect)
         context.setFillColor(gray: 1, alpha: 1)
-        context.addPath(path(for: shape, in: rect))
+        context.addPath(shape.cgPath(in: rect))
         context.fillPath()
         return context.makeImage()
-    }
-
-    private static func path(for shape: OutputShape, in rect: CGRect) -> CGPath {
-        switch shape {
-        case .rectangle, .square:
-            return CGPath(rect: rect, transform: nil)
-        case .roundedSquare:
-            let corner = rect.width * 0.18
-            return CGPath(roundedRect: rect, cornerWidth: corner, cornerHeight: corner, transform: nil)
-        case .circle:
-            return CGPath(ellipseIn: rect, transform: nil)
-        case .hexagon:
-            return regularPolygonPath(sides: 6, in: rect)
-        case .octagon:
-            return regularPolygonPath(sides: 8, in: rect)
-        }
-    }
-
-    /// En regelbunden N-hörning inskriven i `rect`, roterad så den alltid
-    /// får en platt sida längst upp och ner (t.ex. en "stopptecken"-oktagon)
-    /// istället för en spets.
-    private static func regularPolygonPath(sides: Int, in rect: CGRect) -> CGPath {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = min(rect.width, rect.height) / 2
-        let angleOffset = -CGFloat.pi / 2 + (.pi / CGFloat(sides))
-
-        let path = CGMutablePath()
-        for i in 0..<sides {
-            let angle = angleOffset + (2 * .pi * CGFloat(i) / CGFloat(sides))
-            let point = CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
-            if i == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
-        }
-        path.closeSubpath()
-        return path
     }
 }

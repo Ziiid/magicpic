@@ -69,8 +69,16 @@ public struct BackgroundRemovalService {
 
     /// Lägger motivet från en redan beräknad mask mot vald bakgrund. Billig
     /// nog att köras varje gång användaren byter bakgrundsstil.
-    public func composite(_ foreground: ForegroundMask, background: BackgroundStyle) throws -> PlatformImage {
-        let originalCI = CIImage(cgImage: foreground.original)
+    ///
+    /// - Parameter foregroundImage: Motivets pixeldata att kompositera -
+    ///   default `foreground.original` (bilden masken beräknades från).
+    ///   Skickas in separat när bildkorrigeringar (`ImageAdjustments`) ska
+    ///   synas i resultatet: masken (dyr, Vision) cachas mot den OJUSTERADE
+    ///   bilden, men själva urklippet ska ändå visa den JUSTERADE - masken
+    ///   är fortfarande giltig eftersom justeringar inte ändrar motivets
+    ///   geometri/kontur, bara dess färger.
+    public func composite(_ foreground: ForegroundMask, background: BackgroundStyle, foregroundImage: CGImage? = nil) throws -> PlatformImage {
+        let originalCI = CIImage(cgImage: foregroundImage ?? foreground.original)
         let maskCI = CIImage(cvPixelBuffer: foreground.mask)
         let backgroundCI = try makeBackgroundImage(background, original: originalCI)
 
@@ -121,36 +129,7 @@ public struct BackgroundRemovalService {
             guard let customCG = customImage.cgImageRepresentation else {
                 throw RemovalError(message: "Kunde inte läsa den valda bakgrundsbilden.")
             }
-            return Self.scaledToFill(CIImage(cgImage: customCG), target: extent, transform: transform)
+            return transform.scaledToFill(CIImage(cgImage: customCG), target: extent)
         }
-    }
-
-    /// Skalar och beskär `image` så den täcker `target` helt (aspect fill),
-    /// justerad med användarens extra zoom/panorering. `transform.scale`
-    /// klampas till minst 1 - att zooma UT under "cover"-nivån skulle
-    /// blotta kanter utan bildinnehåll. Beskärningsfönstret klampas i sin
-    /// tur till att alltid ligga innanför den skalade bilden, så en
-    /// panorering aldrig kan dra fram tomma kanter (även om `transform`
-    /// råkar ange ett värde utanför giltigt intervall).
-    private static func scaledToFill(_ image: CIImage, target: CGRect, transform: CanvasTransform) -> CIImage {
-        let baseScale = max(target.width / image.extent.width, target.height / image.extent.height)
-        let scale = baseScale * max(transform.scale, 1)
-        let scaled = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-
-        let centeredX = (scaled.extent.width - target.width) / 2
-        let centeredY = (scaled.extent.height - target.height) / 2
-        // `offset` är en andel av målytan; CoreImages y-axel pekar uppåt,
-        // SwiftUIs nedåt, därav minustecknet på Y.
-        let panX = transform.offset.width * target.width
-        let panY = -transform.offset.height * target.height
-
-        let maxX = max(scaled.extent.width - target.width, 0)
-        let maxY = max(scaled.extent.height - target.height, 0)
-        let cropX = min(max(centeredX - panX, 0), maxX)
-        let cropY = min(max(centeredY - panY, 0), maxY)
-
-        let cropOrigin = CGPoint(x: scaled.extent.minX + cropX, y: scaled.extent.minY + cropY)
-        let cropped = scaled.cropped(to: CGRect(origin: cropOrigin, size: target.size))
-        return cropped.transformed(by: CGAffineTransform(translationX: target.minX - cropOrigin.x, y: target.minY - cropOrigin.y))
     }
 }
