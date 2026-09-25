@@ -4,8 +4,7 @@ import SwiftUI
 public final class SearchViewModel: ObservableObject {
     @Published public var query: String = ""
     @Published public var sourceKind: ImageSourceKind = .web
-    @Published public var results: [SearchResultItem] = []
-    @Published public var isSearching = false
+    @Published public var searchEngine: WebSearchEngine = .google
     @Published public var errorMessage: String?
 
     @Published public var selectedItem: SearchResultItem?
@@ -49,9 +48,7 @@ public final class SearchViewModel: ObservableObject {
         public let editableMask: EditableMask
     }
 
-    public let settings: SettingsStore
     private let exporter: ImageExporter
-    private let unsplashService = UnsplashImageSearchService()
     private let backgroundRemoval = BackgroundRemovalService()
     private let shapeCrop = ShapeCropService()
     private let imageAdjustment = ImageAdjustmentService()
@@ -70,76 +67,20 @@ public final class SearchViewModel: ObservableObject {
     // resultatet av ett nyare.
     private var backgroundGeneration = 0
 
-    public init(settings: SettingsStore, exporter: ImageExporter) {
-        self.settings = settings
+    public init(exporter: ImageExporter) {
         self.exporter = exporter
     }
 
-    public func search() {
+    /// Bygger sökmotor-URL:en för den aktuella sökningen (`query` +
+    /// `searchEngine`), att öppna i systemets webbläsare - appen hämtar
+    /// inga sökresultat själv (ingen API-nyckel, inga stockbilds-
+    /// begränsningar som med tidigare Unsplash-lösningen). Användaren
+    /// hittar bilden i webbläsaren och drar sedan in den i appen precis
+    /// som vilken webbild/fil som helst.
+    public func webSearchURL() -> URL? {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        errorMessage = nil
-        isSearching = true
-        results = []
-        selectedItem = nil
-        originalImage = nil
-        processedImage = nil
-        compositedImage = nil
-        adjustedPreviewImage = nil
-        backgroundStyle = .transparent
-        photoFilter = .none
-        imageAdjustments = .identity
-        outputShape = .square
-        outputShapeTransform = .identity
-
-        Task {
-            do {
-                results = try await unsplashService.search(
-                    query: trimmed,
-                    accessKey: settings.unsplashAccessKey
-                )
-                if results.isEmpty { errorMessage = "Inga bilder hittades." }
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-            isSearching = false
-        }
-    }
-
-    public func select(_ item: SearchResultItem) {
-        selectedItem = item
-        originalImage = nil
-        processedImage = nil
-        compositedImage = nil
-        adjustedPreviewImage = nil
-        backgroundStyle = .transparent
-        photoFilter = .none
-        imageAdjustments = .identity
-        outputShape = .square
-        outputShapeTransform = .identity
-        errorMessage = nil
-        isLoadingDetail = true
-
-        Task {
-            originalImage = await loadFullImage(for: item)
-            isLoadingDetail = false
-        }
-    }
-
-    private func loadFullImage(for item: SearchResultItem) async -> PlatformImage? {
-        guard let url = item.fullImageURL else { return nil }
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            guard let image = PlatformImage.normalizedOrientation(from: data) else {
-                errorMessage = "Filen var inte en giltig bild."
-                return nil
-            }
-            return image
-        } catch {
-            errorMessage = "Kunde inte hämta bilden i full storlek: \(error.localizedDescription)"
-            return nil
-        }
+        guard !trimmed.isEmpty else { return nil }
+        return searchEngine.searchURL(for: trimmed)
     }
 
     public func removeBackground() {
@@ -264,13 +205,26 @@ public final class SearchViewModel: ObservableObject {
         }
     }
 
-    /// Byter slutbildens form (kvadrat/cirkel/hexagon/...) och tillämpar den
-    /// direkt, av samma anledning som `setBackgroundStyle`.
+    /// Byter slutbildens form (kvadrat/cirkel/hexagon/...). `SubjectFramingCanvas`
+    /// klipper redan visuellt till den nya formen direkt via bindningen till
+    /// `outputShape` (samma mekanism som `ManipulableImageView`s clipShape) -
+    /// till skillnad från t.ex. bakgrundsstil har formvalet alltså redan en
+    /// synlig effekt utan att någon riktig bearbetning körs. Kör därför bara
+    /// om `removeBackground()` villkorat av `if processedImage != nil` -
+    /// precis som `commitOutputShapeTransform` - annars skulle att bara
+    /// VÄLJA en form (t.ex. efter att ha justerat ljusstyrka/filter men
+    /// innan bakgrunden någonsin tagits bort) tyst trigga en riktig
+    /// Vision-körning med standardbakgrunden (genomskinlig), vilket
+    /// upplevdes som att "bakgrunden försvinner" bara av att välja form
+    /// (upptäckt 2026-09-25) - samma bugg som `commitOutputShapeTransform`
+    /// redan fixades för, fast för formmenyn istället för dra-gesten.
     /// Positioneringen (pan/zoom) i `outputShapeTransform` behålls oförändrad
     /// - den avser var i motivet formen läggs, inte formen själv.
     public func setOutputShape(_ shape: OutputShape) {
         outputShape = shape
-        removeBackground()
+        if processedImage != nil {
+            removeBackground()
+        }
     }
 
     /// Anropas när användaren släpper en dra-/nyp-/rotationsgest i den
@@ -354,13 +308,20 @@ public final class SearchViewModel: ObservableObject {
         isLoadingDetail = false
     }
 
+    /// Läser in en bild från urklipp - reservväg för webbsidor (t.ex.
+    /// ChatGPTs bildvisning) där native drag-and-drop av bilden inte
+    /// startar alls; se `PlatformImage.fromPasteboard()`.
+    public func pasteFromClipboard() {
+        errorMessage = nil
+        guard let image = PlatformImage.fromPasteboard() else {
+            errorMessage = "Hittade ingen bild i urklipp. Högerklicka bilden i webbläsaren och välj \"Kopiera bild\" först."
+            return
+        }
+        loadImportedImage(image, name: "Inklistrad bild")
+    }
+
     public func loadImportedImage(_ image: PlatformImage, name: String) {
-        selectedItem = SearchResultItem(
-            id: "imported-\(UUID().uuidString)",
-            title: name,
-            thumbnailURL: nil,
-            fullImageURL: nil
-        )
+        selectedItem = SearchResultItem(id: "imported-\(UUID().uuidString)", title: name)
         originalImage = image
         processedImage = nil
         compositedImage = nil

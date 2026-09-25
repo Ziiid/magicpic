@@ -147,6 +147,7 @@ struct DetailPanel: View {
         .sheet(isPresented: $showAdjustments) {
             ImageAdjustmentsView(
                 adjustments: viewModel.imageAdjustments,
+                previewImage: viewModel.adjustedPreviewImage ?? viewModel.originalImage,
                 onChange: { viewModel.setImageAdjustments($0) },
                 onDone: { showAdjustments = false }
             )

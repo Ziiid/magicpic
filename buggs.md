@@ -3,6 +3,216 @@
 Logg över buggar som upptäckts under utveckling, med symptom, rotorsak och
 fix, så att liknande misstag inte upprepas. Nyast överst.
 
+## 2026-09-25: Går inte att dra in en ChatGPT-genererad bild
+
+**Symptom:** Efter att ha bytt webbsökning mot att öppna en riktig
+sökmotor/ChatGPT i webbläsaren (se roadmap-anteckningen i `CLAUDE.md`)
+gick det inte att dra bilden från ChatGPTs svar in i appen - draget gav
+inget synligt fel, det verkade bara inte "ta" alls. Avgörande ledtråd:
+SAMMA bild gick fint att dra till macOS Bilder-appen, vilket uteslöt den
+första hypotesen (att ChatGPTs sida skulle blockera native HTML5-drag
+med t.ex. `-webkit-user-drag: none`) - webbläsaren startade uppenbarligen
+ett giltigt drag, så felet måste ligga i hur VÅR app tog emot det.
+
+**Rotorsak:** `ContentView.handleDrop` provade bara EN representations-
+typ och antog att den alltid gick att ladda - den kollade
+`hasItemConformingToTypeIdentifier(.fileURL)`, och om det var sant
+returnerade den `true` (= "hanterat") direkt, UTAN att vänta på att
+`loadItem`s asynkrona callback faktiskt gav ett giltigt resultat. Ett
+Safari-drag av en bild annonserar ofta en fil-URL som ett asynkront
+"fil-löfte" (`NSFilePromiseReceiver`-protokollet) - den enkla
+`loadItem`-vägen förhandlar inte det protokollet, så `Self.url(from:)`
+kunde ge `nil` TYST. Koden gav då aldrig bildobjekt- eller URL-
+representationen en chans, trots att de fanns kvar som alternativ och
+troligen hade fungerat. Bilder-appen (en fullständig AppKit-app som
+implementerar löftesprotokollet fullt ut) lyckades därför med samma
+drag som vår förenklade `.onDrop`-hantering misslyckades med.
+
+**Fix, försök 1 (otillräckligt):** Fick `handleDrop` att falla igenom
+till nästa representationstyp (fil-URL → bildobjekt → vanlig URL) OM en
+tidigare typ annonserades men gav ett tomt/nil-resultat vid den faktiska
+laddningen. Löste INTE problemet - fortfarande omöjligt att dra in
+ChatGPT-bilden. Diagnosticerade vidare: "Kopiera bild" i webbläsaren +
+"Klistra in bild" (`PlatformImage.fromPasteboard()`) fungerade PERFEKT,
+vilket visade att bilddata/mottagningskoden i övrigt var helt OK - felet
+satt isolerat i just fil-URL-vägen. Insikten: en sekventiell
+fallback-kedja hjälper bara om den tidigare typens callback FAKTISKT
+KALLAS (även med `nil`) - ett Safari-drag av en bild annonserar ofta en
+fil-URL som ett asynkront "fil-löfte" (`NSFilePromiseReceiver`-
+protokollet), och provar man den via den enkla `loadItem`-vägen kan den
+i värsta fall HÄNGA SIG HELT utan att någonsin kalla sin callback - då
+når exekveringen aldrig fram till nästa steg i en sekventiell kedja,
+hur många fallbacks man än lägger till efteråt.
+
+**Fix, försök 2 (löste det):** Byggde om `handleDrop` till att starta
+ALLA tillgängliga representationstyper (bildobjekt, fil-URL, vanlig URL)
+SAMTIDIGT/parallellt istället för i tur och ordning, med en liten
+`DropClaim`-hjälpklass (låst med `NSLock`, eftersom callbacken för varje
+typ kan komma tillbaka på olika bakgrundstrådar) som ser till att bara
+DEN FÖRSTA som faktiskt svarar med ett giltigt resultat vinner och
+importerar bilden. En hängande fil-URL-callback blockerar då inte längre
+de andra, snabbare vägarna. Behöll även "Klistra in bild"
+(`SearchViewModel.pasteFromClipboard()`) som en helt oberoende reservväg
+för de fall INGEN representation alls går att ladda.
+
+**Lärdom (försök 1-2):** En sekventiell fallback-kedja ("prova A, faller
+den igenom till B") antar implicit att A:s callback ALLTID kallas, om än
+med `nil` vid fel - det stämmer inte för asynkrona "löftes"-baserade
+representationer, som kan hänga sig helt istället för att misslyckas
+tydligt. När en åtgärd kan HÄNGA SIG (inte bara lyckas/misslyckas), kör
+alternativen PARALLELLT och låt den snabbaste vinna, istället för
+sekventiellt. En jämförelsepunkt som "det funkar till EN annan app (t.ex.
+Bilder) men inte hit" är ett starkt tecken på att problemet sitter i
+mottagarens hantering, inte i avsändarens sida. Och: när en första fix
+INTE löser ett rapporterat problem, fråga efter ett konkret, isolerande
+test (här: "fungerar klistra in, som går via en helt annan kodväg?")
+innan man gissar en andra gång - det avgjorde exakt var felet satt.
+
+**Bekräftad slutgiltig orsak (2026-09-26):** trots att bildobjekt/
+fil-URL/URL/rå-bilddata NU provades parallellt (och `.onDrop` breddades
+till att acceptera vilken typ som helst), gick det FORTFARANDE inte att
+dra in bilden - och avgörande: det gick att dra samma bild från den
+fristående ChatGPT Mac-appen, bara inte från webbläsaren. Lade till en
+2-sekunders diagnostisk timeout som visar `provider.
+registeredTypeIdentifiers` i UI:t om inget lyckas - den avslöjade att
+ChatGPTs webbsida bara annonserar en `dyn.xxx`-identifierare (en
+"dynamisk" UTI - macOS eget substitut när ingen riktig UTI är
+registrerad) och `com.apple.WebKit.custom-pasteboard-data`. Det senare
+är WebKits typ för sidor som bygger sin EGEN dragpayload i JavaScript
+(`dataTransfer.setData(...)` med en egen, godtycklig datatyp) istället
+för att låta webbläsaren dra själva bildelementet - ett opakt, sidinternt
+format som INGEN app utanför sidan kan tolka. Det här är alltså inte en
+bugg i vår `.onDrop`/`NSItemProvider`-kod alls, utan en begränsning i hur
+ChatGPTs webbsida är byggd - ingen mängd klientkod kan koda sig runt det.
+"Klistra in"-fliken (`PlatformImage.fromPasteboard()`, går via webbläsarens
+"Kopiera bild" - den riktiga bildbufferten, INTE sidans anpassade
+dragkod) är den korrekta, PERMANENTA lösningen för just den sortens sida,
+inte en tillfällig reservväg. UI-texterna i `ContentView.swift`
+uppdaterade för att säga det rakt ut istället för att antyda att drag
+"kanske" fungerar.
+
+**Slutlärdom:** När flera oberoende, tekniskt korrekta fixförsök i rad
+inte hjälper, sluta gissa och bygg in mätbar diagnostik (här:
+`provider.registeredTypeIdentifiers` i ett synligt felmeddelande) istället
+för en femte gissning - den gav svaret direkt. Vissa "buggar" är inte
+buggar i den egna koden alls utan en begränsning hos en extern part
+(här: en webbsidas egen, icke-standardiserade drag-implementation) - då
+är rätt fix inte "mer drop-hanteringskod" utan en fungerande ALTERNATIV
+väg (klistra in), presenterad som den avsedda lösningen för det fallet
+istället för en gömd reservknapp.
+
+---
+
+## 2026-09-25: EditableMask antog fel pixelformat - penseln trasig/fel plats
+
+**Symptom:** Efter att ha fixat koordinatmappningen (se posten nedan)
+fungerade penseln i "Finjustera" fortfarande inte - träffade fortfarande
+fel plats, och "Lägg till"/"Ta bort" gav samma (synliga) resultat, som att
+läget inte spelade någon roll.
+
+**Rotorsak:** `EditableMask.init(copying:)` KOPIERADE de råa bytesen från
+Visions mask-`CVPixelBuffer` rakt av, i vad den ANTOG var samma format som
+källan redan hade (`CVPixelBufferGetPixelFormatType(source)`), och
+`paint(at:radius:adding:)` skapade sedan en `CGContext` som HÅRDKODAR
+`bitsPerComponent: 8` + `DeviceGray`-färgrymd. Det här var redan
+identifierat som en overifierad risk (se `CLAUDE.md`, "Kända
+begränsningar"): om källbufferten inte faktiskt var 8-bitars gråskala
+skulle antingen `CGContext`-skapandet misslyckas tyst (ingen effekt av
+penseln alls), eller - värre - lyckas men tolka fel sorts bytes (t.ex. ett
+flyttalsformat) som gråskale-pixlar, vilket skulle sprida ut/förskjuta
+"målningen" över fel platser i bufferten på ett sätt som ser slumpmässigt
+och positionsfel ut, och göra "lägg till"/"ta bort" oskiljbara eftersom
+båda bara producerar brus i data som ändå tolkas fel vid kompositering.
+Den vanliga bakgrundsborttagningen (`BackgroundRemovalService`) drabbades
+ALDRIG av detta eftersom den läser masken via `CIImage(cvPixelBuffer:)`,
+som självt känner av och tolkar buffertens faktiska pixelformat korrekt -
+bara den handskrivna, rå `CGContext`-vägen i `EditableMask`/`paint` gissade.
+
+**Fix:** `EditableMask.init(copying:)` skapar nu ALLTID kopian i ett känt,
+fixerat format (`kCVPixelFormatType_OneComponent8`) och fyller den via
+`CIContext.render(_:to:bounds:colorSpace:)`, som konverterar automatiskt
+FRÅN källans verkliga format oavsett vilket det är - ingen gissning kvar.
+Se `EditableMask.swift`.
+
+**Lärdom:** En kod-kommentar/riskanteckning om ett overifierat antagande
+("inte testat på enhet ännu") är inte samma sak som att antagandet är
+säkert bara för att koden kompilerar och andra, näraliggande vägar (som
+råkar gå via ett format-medvetet API som `CIImage`) fungerar - ett
+symptom som "träffar fel plats" eller "gör samma sak oavsett läge" är en
+stark signal att undersöka just den flaggade, overifierade risken FÖRST,
+innan man letar efter nya buggar i närliggande, redan verifierad
+geometri/koordinat-kod.
+
+---
+
+## 2026-09-25: Penseln i mask-editorn målade på fel ställe
+
+**Symptom:** I "Finjustera"-penselverktyget (`MaskEditorView`) hamnade
+ändringen till VÄNSTER om där man faktiskt målade - penselcirkeln (den
+visuella markören) visades på rätt plats under fingret/muspekaren, men
+själva masken uppdaterades någon annanstans.
+
+**Rotorsak:** `imagePoint(from:...)` räknade om en klickpunkt i
+containerns koordinater till en bildpixel genom att anta att bilden
+fyller HELA `containerSize`. Men bilden visas med
+`.aspectRatio(contentMode: .fit)`, vilket brevlådar (letterboxar) den med
+tomrum centrerat på sidorna eller upptill/nedtill så fort bildens
+proportion inte exakt matchar containerns kvadratiska yta - t.ex. alla
+liggande eller stående bilder. Mappningen `(unscaledX / containerSize.width)
+* maskSize.width` ignorerade det tomrummet helt, så resultatet blev
+förskjutet med precis brevlådans bredd/höjd. `brushCursor`-cirkeln (som
+bara ritas vid rå `location`, oberoende av den här uträkningen) visades
+däremot alltid rätt, vilket dolde att den UNDERLIGGANDE målningen låg fel.
+
+**Fix:** Lade till `aspectFitSize(for:in:)` som räknar ut bildens
+FAKTISKA visningsstorlek/position inom containern (samma logik som
+`scaledToFill`-varianten i `CanvasTransform` löser för ett annat
+letterbox-liknande problem), och lät `imagePoint` subtrahera det
+centrerade tomrummet (`imageOrigin`) innan klickpunkten skalas till
+maskens pixelkoordinater. `pixelRadius`-uträkningen i `paint(at:...)`
+använde av samma anledning `displaySize.width` istället för
+`containerSize.width`. Se `MaskEditorView.swift`.
+
+**Lärdom:** En visuell markör som ritas direkt vid den RÅA klickpunkten
+(ingen transform-matte) kan se helt korrekt ut även när den FAKTISKA
+träffytan (som går via en separat, felaktig koordinat-uträkning) inte är
+det - lita inte på att en gest "ser rätt ut" bara för att en overlay-
+indikator hamnar rätt, verifiera separat att den underliggande
+koordinatmappningen stämmer, särskilt runt `.aspectRatio(contentMode:
+.fit)` där innehållet ofta INTE fyller hela sin behållare.
+
+---
+
+## 2026-09-25: Att bara VÄLJA en form triggade riktig bakgrundsborttagning
+
+**Symptom:** Redigerade man bilden (t.ex. ljusstyrka/filter under
+"Justera"/"Filter") och sedan valde en form i formmenyn (kvadrat → cirkel
+osv.), utan att någonsin ha bett om bakgrundsborttagning, "försvann"
+bakgrunden (blev genomskinlig).
+
+**Rotorsak:** `setOutputShape` anropade `removeBackground()` ovillkorat,
+med motiveringen "av samma anledning som `setBackgroundStyle`" - men till
+skillnad från bakgrundsstil har formvalet redan en synlig effekt UTAN
+riktig bearbetning, eftersom `SubjectFramingCanvas`/`ManipulableImageView`
+klipper direkt till vald form via SwiftUI-bindningen till `outputShape`.
+Att ändå ovillkorat köra `removeBackground()` startade en riktig
+Vision-körning med standardbakgrunden (genomskinlig) bara av att välja
+form i menyn - exakt samma bugg som "Enbart panorering triggade riktig
+bakgrundsborttagning" nedan, fast för formmenyn istället för dra-gesten.
+
+**Fix:** `setOutputShape` kör numera `removeBackground()` villkorat av
+`if processedImage != nil`, precis som `commitOutputShapeTransform`. Se
+`SearchViewModel.swift`.
+
+**Lärdom:** "Explicit val ska alltid tillämpas direkt"
+(`setBackgroundStyle`-resonemanget) gäller bara när valet annars INTE har
+någon synlig effekt alls. Formvalet hade redan en synlig effekt (klippning
+i formramningen) utan att Vision behövde köras - kontrollera alltid om ett
+UI-val redan syns via en billig, ren SwiftUI-bindning innan man antar att
+det måste trigga den dyra bearbetningen för att "göra något".
+
+---
+
 ## 2026-09-25: Enbart panorering triggade riktig bakgrundsborttagning
 
 **Symptom:** Bakgrunden "försvann" (blev genomskinlig) bara av att dra i

@@ -74,6 +74,25 @@ public extension PlatformImage {
         return normalized
     }
 
+    /// Läser en bild från systemets urklipp, om det finns en. Ett
+    /// komplement till drag-and-drop: vissa webbsidor (t.ex. ChatGPTs
+    /// bildvisning) blockerar native bild-drag (t.ex. via CSS
+    /// `-webkit-user-drag: none`) för att styra sin egen klick-UI (öppna
+    /// en helskärmsvy m.m.), så att dra en bild DÄRIFRÅN in i appen ger
+    /// inget synligt fel - draget startar aldrig över huvud taget
+    /// (rapporterat 2026-09-25). Högerklick → "Kopiera bild" i
+    /// webbläsaren fungerar ändå, eftersom det går via webbläsarens egen
+    /// bildavkodning, inte HTML5 drag-events - klistra in är alltså en
+    /// mer tillförlitlig reservväg än drag när en sida inte samarbetar.
+    static func fromPasteboard() -> PlatformImage? {
+        #if os(macOS)
+        guard let image = NSImage(pasteboard: .general) else { return nil }
+        #else
+        guard let image = UIPasteboard.general.image else { return nil }
+        #endif
+        return image.normalizedOrientation()
+    }
+
     /// Skalar ner bilden så längsta sidan är högst `maxDimension` punkter -
     /// för snabba förhandsvisningsminiatyrer (t.ex. filterväljaren) utan
     /// att köra tunga CoreImage-filter på en bild i full upplösning.

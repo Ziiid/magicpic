@@ -9,11 +9,17 @@ import SwiftUI
 /// resultatet (med Vision-masken) om bakgrunden redan bearbetats en gång.
 struct ImageAdjustmentsView: View {
     @State private var adjustments: ImageAdjustments
+    // Skickas in som ett vanligt värde, inte kopierat till @State - så att
+    // varje omritning (när `viewModel.adjustedPreviewImage` uppdateras via
+    // `onChange`) visar den SENASTE bilden, inte en frusen ögonblicksbild
+    // från när panelen öppnades.
+    let previewImage: PlatformImage?
     let onChange: (ImageAdjustments) -> Void
     let onDone: () -> Void
 
-    init(adjustments: ImageAdjustments, onChange: @escaping (ImageAdjustments) -> Void, onDone: @escaping () -> Void) {
+    init(adjustments: ImageAdjustments, previewImage: PlatformImage?, onChange: @escaping (ImageAdjustments) -> Void, onDone: @escaping () -> Void) {
         _adjustments = State(initialValue: adjustments)
+        self.previewImage = previewImage
         self.onChange = onChange
         self.onDone = onDone
     }
@@ -22,6 +28,20 @@ struct ImageAdjustmentsView: View {
         VStack(spacing: 16) {
             Text("Justera bilden")
                 .font(.headline)
+
+            // Egen förhandsvisning HÄR i panelen - annars är det svårt att
+            // se vad ett reglage faktiskt gör medan panelen (särskilt som
+            // en macOS-sheet) täcker bilden bakom (rapporterat 2026-09-26).
+            ZStack {
+                CheckerboardBackground()
+                if let previewImage {
+                    Image(platformImage: previewImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                }
+            }
+            .frame(height: 180)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
 
             ScrollView {
                 VStack(spacing: 14) {

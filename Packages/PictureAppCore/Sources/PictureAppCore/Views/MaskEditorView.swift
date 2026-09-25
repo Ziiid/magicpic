@@ -160,28 +160,52 @@ struct MaskEditorView: View {
     }
 
     private func paint(at location: CGPoint, containerSize: CGSize, scale: CGFloat, offset: CGSize) {
+        let maskSize = CGSize(width: editableMask.width, height: editableMask.height)
+        let displaySize = Self.aspectFitSize(for: maskSize, in: containerSize)
         let point = Self.imagePoint(
             from: location,
             containerSize: containerSize,
+            displaySize: displaySize,
             scale: scale,
             offset: offset,
-            maskSize: CGSize(width: editableMask.width, height: editableMask.height)
+            maskSize: maskSize
         )
-        let pixelRadius = (brushRadius / scale) * (CGFloat(editableMask.width) / containerSize.width)
+        let pixelRadius = (brushRadius / scale) * (CGFloat(editableMask.width) / displaySize.width)
         editableMask.paint(at: point, radius: pixelRadius, adding: isAdding)
         brushCursor = location
     }
 
+    /// Bildens faktiska visningsstorlek inuti `containerSize` med
+    /// `.aspectRatio(contentMode: .fit)` - bilden fyller INTE nödvändigtvis
+    /// hela containern, den brevlådas (letterboxas) om proportionerna inte
+    /// stämmer exakt överens, med tomrum centrerat på sidorna/upptill-
+    /// nedtill. Måste räknas ut innan en klickpunkt kan mappas till en
+    /// bildpixel - annars pekar penseln systematiskt fel så fort bildens
+    /// proportion skiljer sig från containerns (upptäckt 2026-09-25).
+    private static func aspectFitSize(for contentSize: CGSize, in containerSize: CGSize) -> CGSize {
+        guard contentSize.width > 0, contentSize.height > 0 else { return containerSize }
+        let scale = min(containerSize.width / contentSize.width, containerSize.height / contentSize.height)
+        return CGSize(width: contentSize.width * scale, height: contentSize.height * scale)
+    }
+
     /// Inverterar `scaleEffect(scale).offset(offset)`-transformen för hand
     /// för att räkna ut vilken bildpixel en pekpunkt i det oskalade
-    /// overlayet motsvarar.
-    private static func imagePoint(from containerPoint: CGPoint, containerSize: CGSize, scale: CGFloat, offset: CGSize, maskSize: CGSize) -> CGPoint {
+    /// overlayet motsvarar. Går via bildens faktiska (letterboxade)
+    /// visningsyta (`displaySize`, centrerad i containern) - inte hela
+    /// containern - annars stämmer inte mappningen när bildens proportion
+    /// skiljer sig från containerns.
+    private static func imagePoint(from containerPoint: CGPoint, containerSize: CGSize, displaySize: CGSize, scale: CGFloat, offset: CGSize, maskSize: CGSize) -> CGPoint {
         let center = CGPoint(x: containerSize.width / 2, y: containerSize.height / 2)
         let unscaledX = (containerPoint.x - center.x - offset.width) / scale + center.x
         let unscaledY = (containerPoint.y - center.y - offset.height) / scale + center.y
+
+        let imageOrigin = CGPoint(
+            x: (containerSize.width - displaySize.width) / 2,
+            y: (containerSize.height - displaySize.height) / 2
+        )
         return CGPoint(
-            x: (unscaledX / containerSize.width) * maskSize.width,
-            y: (unscaledY / containerSize.height) * maskSize.height
+            x: (unscaledX - imageOrigin.x) / displaySize.width * maskSize.width,
+            y: (unscaledY - imageOrigin.y) / displaySize.height * maskSize.height
         )
     }
 

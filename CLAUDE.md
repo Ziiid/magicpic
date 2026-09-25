@@ -13,7 +13,8 @@ spara/exportera-flödet) ligger i `App/macOS` respektive `App/iOS`.
 
 Se även `buggs.md` - en logg över hittade buggar med rotorsak och fix.
 Läs den innan du ändrar bildinläsning, gester eller
-bakgrund/form-pipelinen, så samma misstag inte görs igen.
+bakgrund/form-pipelinen, så samma misstag inte görs igen. Se även
+`roadmap.md` för vad som är klart och kvar, i prioritetsordning.
 
 ## Arbetsregler
 
@@ -76,6 +77,21 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen.
 
 ## Kända begränsningar / risker att hålla koll på
 
+- Drag-and-drop av en bild FRÅN chatgpt.com (webbläsaren, inte den
+  fristående Mac-appen) in i appen fungerar INTE, och går inte att fixa
+  klientsidan - bekräftat 2026-09-26 med diagnostik
+  (`provider.registeredTypeIdentifiers`): sidan annonserar bara en
+  `dyn.xxx`-UTI och `com.apple.WebKit.custom-pasteboard-data`, WebKits
+  typ för en sidas EGEN, JavaScript-byggda dragpayload
+  (`dataTransfer.setData(...)`) - ett opakt format ingen app utanför
+  sidan kan tolka. Använd fliken "Klistra in" istället (högerklick →
+  "Kopiera bild" i webbläsaren går via den riktiga bildbufferten, inte
+  sidans dragkod) - det är den avsedda, permanenta lösningen för den här
+  sortens sida, inte en tillfällig reservväg. Se `buggs.md`
+  ("Går inte att dra in en ChatGPT-genererad bild") för hela
+  diagnosresan. Om andra webbkällor senare rapporteras ha samma problem,
+  kolla samma sak (diagnostikloggen i `handleDrop` finns kvar i
+  `#if DEBUG`) innan du antar att det är samma orsak.
 - Alla bilder normaliseras till upprätt EXIF-orientering vid inläsning
   (`PlatformImage.normalizedOrientation(from:)`/`.normalizedOrientation()`
   i `PlatformImage.swift`) INNAN de når Vision/CoreImage-pipelinen.
@@ -88,11 +104,16 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen.
   2026-09-25). Alla inläsningsvägar (sökresultat, filimport/drag-and-drop,
   `PhotosPicker`, kamerafångst på båda plattformarna) går nu igenom
   normaliseringen - lägg till nya bildkällor där också.
-- `EditableMask` (penseln i `MaskEditorView`) antar att Visions
-  mask-`CVPixelBuffer` är 8-bitars gråskala (`kCVPixelFormatType_OneComponent8`).
-  Stämmer det inte skulle `CGContext`-skapandet i `paint(at:radius:adding:)`
-  kunna misslyckas tyst (ingen synlig effekt av penseln, inget felmeddelande).
-  Inte verifierat på enhet ännu.
+- `EditableMask` (penseln i `MaskEditorView`) antog tidigare att Visions
+  mask-`CVPixelBuffer` redan var 8-bitars gråskala
+  (`kCVPixelFormatType_OneComponent8`) och memcpy:ade de råa bytesen rakt
+  av - stämde det inte kunde `CGContext`-skapandet i
+  `paint(at:radius:adding:)` misslyckas tyst eller tolka fel sorts bytes
+  som gråskale-pixlar (penseln träffade fel plats, "lägg till"/"ta bort"
+  blev oskiljbara). Fixat 2026-09-25: kopian görs nu alltid om till
+  `kCVPixelFormatType_OneComponent8` via `CIContext.render`, som
+  konverterar från källans faktiska format oavsett vilket det är - se
+  `buggs.md`. Inte omtestad på enhet ännu.
 - Den sammansatta dra/nyp/vrid-gesten i `ManipulableImageView` (se ovan)
   ersatte ett tidigare mönster (separata `.gesture`/`.simultaneousGesture`-
   anrop med `MagnificationGesture`) som rapporterades inte reagera alls på
@@ -118,9 +139,24 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen.
 
 ## Bakgrund / vägval som redan är tagna
 
-- Webbsökning: **Unsplash API**, inte Google Custom Search (för krångligt
-  med Cloud Console) eller Bing (hela Bing Search API-familjen stängdes ner
-  2025-08-11).
+- Webbsökning: appen anropar INGEN bildsöks-API längre (Unsplash togs
+  bort 2026-09-25). Istället öppnas en riktig webbkälla
+  (`WebSearchEngine`: Google/Pinterest för att SÖKA, ChatGPT - via
+  `chatgpt.com/?q=...`, som förifyller promptrutan - för att SKAPA en ny
+  bild) i systemets webbläsare med användarens sökterm/prompt - ingen
+  API-nyckel, inga stockbilds-begränsningar, riktiga sökresultat eller en
+  riktig AI-genererad bild. Användaren drar in bilden den hittar/skapar
+  direkt i appen (`ContentView`s `.onDrop` hanterar redan fjärr-URL:er
+  och rå bilddata från en webbläsare, inte bara lokala filer) - UTOM för
+  ChatGPT (se "Kända begränsningar" nedan, dess sida stödjer inte native
+  drag för bilder, klistra in behövs där). Anledning till bytet: Unsplash
+  Access Key krävde att VARJE slutanvändare skaffade en egen nyckel
+  (opraktiskt för en app som ska säljas) och gav bara begränsade
+  stockbilder, inte riktiga sökresultat eller AI-generering. Övervägde
+  men valde bort: Google Custom Search API (kräver Cloud
+  Console-uppsättning + nyckel per installation eller en egen
+  backend-proxy för att hemlighålla nyckeln - mer att bygga/drifta än
+  bara en deep-link).
 - Egen bild: valdes bort från en egenbyggd filnamns-/albumsökning i Foton
   (PhotoKits publika API stöder ingen fri innehållsbaserad sökning som
   "hitta bilder med en hund" - det är en intern Foton-appsfunktion) till
@@ -132,41 +168,9 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen.
 - Bakgrundsborttagning: helt på enheten med Vision
   (`VNGenerateForegroundInstanceMaskRequest` + `CIBlendWithMask`), inget
   moln/API.
-- Unsplash Access Key sparas krypterat i nyckelringen (Keychain), aldrig i
-  klartext.
 - Projektet var tidigare ett rent SPM-paket (byggt med `swift build` +
   manuellt `build.sh`-skript) eftersom det utvecklades på en Mac mini med
   bara Xcode Command Line Tools. Det är nu ersatt av det riktiga
   Xcode-projektet ovan; den gamla scaffoldingen är borttagen.
 
-## Funktions-roadmap (prioritetsordning)
-
-Klart:
-1. ✅ Byta bakgrund (transparent / färg / oskärpa / egen bild, med
-   pan/zoom-positionering av den egna bilden).
-2. ✅ Dra in egna bildfiler (Finder/Bilder/webbläsare) för bearbetning.
-3. ✅ Manuell finjustering av masken (pensel för att lägga till/ta bort,
-   med zoom/pan för precision) - `MaskEditorView`.
-3b. ✅ Formbeskärning av slutbilden (kvadrat/cirkel/avrundad kvadrat/
-   hexagon/oktagon) - `ShapeCropService`. Allt utom rektangel beskär
-   automatiskt till kvadrat först.
-3c. ✅ Bildkorrigeringar (ljusstyrka, kontrast, mättnad, temperatur,
-   highlights/shadows, skärpa, brusreducering, vinjett) -
-   `ImageAdjustmentService`/`ImageAdjustmentsView`. Tillämpas på
-   originalbilden INNAN Vision-analysen/bakgrundsborttagningen (se
-   `SearchViewModel.removeBackground()`), så de blir en del av fotot
-   självt - Vision-masken cachas ändå mot den OJUSTERADE originalbilden,
-   eftersom en färgjustering inte ändrar motivets kontur.
-3d. ✅ Färdiga bildstilar/filter (svartvitt, sepia, röntgen, krom, blekt,
-   serietidning, värmekamera, poster, polaroid) - `PhotoFilterService`/
-   `PhotoFilterPickerView`, byggda uteslutande på Apples inbyggda
-   CIFilter-namn (samma filter Bilder-appens eget filterval använder).
-   Körs FÖRE bildkorrigeringarna i samma pre-Vision-steg som 3c.
-
-Kvar:
-4. Välja vilket motiv (av flera `VNInstanceMaskObservation`-instanser) som
-   ska behållas.
-5. Batch-bearbetning av flera markerade sökträffar.
-6. Finder Quick Action för "Ta bort bakgrund" utan att öppna appen.
-7. Exportförinställningar (produktbild, profilbild, Instagram-kvadrat osv).
-8. Innan/efter-jämförelse med skjutreglage.
+Se `roadmap.md` för funktions-roadmapen (klart/kvar, i prioritetsordning).

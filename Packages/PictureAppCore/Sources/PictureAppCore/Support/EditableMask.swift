@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreImage
 import CoreVideo
 import Foundation
 
@@ -11,8 +12,23 @@ public final class EditableMask {
     public let width: Int
     public let height: Int
 
+    private static let ciContext = CIContext()
+
     /// `source` muteras aldrig - den kan vara delad med cachad state i
-    /// `SearchViewModel`.
+    /// `SearchViewModel`. Kopian skapas ALLTID i ett känt, fixerat format
+    /// (`kCVPixelFormatType_OneComponent8`, 8-bitars gråskala) via
+    /// `CIContext.render`, istället för att - som tidigare - anta att
+    /// `source` redan råkade ha exakt det formatet och memcpy:a de råa
+    /// bytesen rakt av. Visions dokumenterade format för den här sortens
+    /// mask gick inte att verifiera med säkerhet (se `buggs.md`), och en
+    /// felaktig gissning gjorde att `paint(at:radius:adding:)`s
+    /// `CGContext`, som hårdkodar `bitsPerComponent: 8`/`DeviceGray`,
+    /// antingen misslyckades tyst eller ritade i data som tolkades fel -
+    /// vilket visade sig som att penseln träffade fel plats och att
+    /// "lägg till"/"ta bort" gav samma (trasiga) resultat (rapporterat
+    /// 2026-09-25). `CIContext.render` konverterar automatiskt FRÅN
+    /// källans faktiska format oavsett vilket det är, så `pixelBuffer`
+    /// garanterat matchar vad `paint` förväntar sig.
     public init(copying source: CVPixelBuffer) {
         width = CVPixelBufferGetWidth(source)
         height = CVPixelBufferGetHeight(source)
@@ -20,8 +36,9 @@ public final class EditableMask {
         var maybeCopy: CVPixelBuffer?
         CVPixelBufferCreate(
             kCFAllocatorDefault, width, height,
-            CVPixelBufferGetPixelFormatType(source),
-            nil, &maybeCopy
+            kCVPixelFormatType_OneComponent8,
+            [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary,
+            &maybeCopy
         )
 
         guard let copy = maybeCopy else {
@@ -31,21 +48,12 @@ public final class EditableMask {
             return
         }
 
-        CVPixelBufferLockBaseAddress(source, .readOnly)
-        CVPixelBufferLockBaseAddress(copy, [])
-        defer {
-            CVPixelBufferUnlockBaseAddress(source, .readOnly)
-            CVPixelBufferUnlockBaseAddress(copy, [])
-        }
-        if let sourceBase = CVPixelBufferGetBaseAddress(source),
-           let destBase = CVPixelBufferGetBaseAddress(copy) {
-            let sourceStride = CVPixelBufferGetBytesPerRow(source)
-            let destStride = CVPixelBufferGetBytesPerRow(copy)
-            let rowBytes = min(sourceStride, destStride)
-            for row in 0..<height {
-                memcpy(destBase + row * destStride, sourceBase + row * sourceStride, rowBytes)
-            }
-        }
+        Self.ciContext.render(
+            CIImage(cvPixelBuffer: source),
+            to: copy,
+            bounds: CGRect(x: 0, y: 0, width: width, height: height),
+            colorSpace: CGColorSpaceCreateDeviceGray()
+        )
         pixelBuffer = copy
     }
 
