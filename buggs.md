@@ -3,6 +3,38 @@
 Logg över buggar som upptäckts under utveckling, med symptom, rotorsak och
 fix, så att liknande misstag inte upprepas. Nyast överst.
 
+## 2026-09-26: Form/Format-menyerna fick blå text istället för normal
+
+**Symptom:** Efter att `ToolbarChrome(tier: .native)` applicerats på
+`shapeMenu`/`formatMenu`s `Menu`-etiketter (för att ge dem samma kantade
+stil som de andra native-knapparna) visade texten sig blå istället för
+normal textfärg - trots att `Filter`/`Justera`/`Motiv`, som går genom
+EXAKT SAMMA `ToolbarChrome(tier: .native)`-kod via `.buttonStyle(.nativeToolbar)`,
+visade helt normal text.
+
+**Rotorsak:** `ToolbarChrome`s `.native`-läge satte aldrig en uttrycklig
+`.foregroundStyle` - bara typsnitt/padding/kant. En vanlig `Button`s
+`configuration.label` (väg via `NativeToolbarButtonStyle`) föll då
+tillbaka på normal textfärg (`.primary`), men ett `Menu`s `label:`-vy
+(väg via `backgroundMenu`/`shapeMenu`/`formatMenu`, som INTE är en
+`Button` och alltså aldrig går via en `ButtonStyle`) verkar av
+`Menu`s egen standardrendering tona sin etikett-text i systemets
+accentfärg om inget annat uttryckligen anges - samma underliggande
+mekanism som gjorde att flera ställen tidigare av misstag använde
+`Color.accentColor` (se den andra posten idag) fast här helt implicit,
+inte skrivet i vår kod alls.
+
+**Fix:** La till `.foregroundStyle(.primary)` uttryckligen i
+`ToolbarChrome`s `.native`-fall - påverkar båda vägarna (Button via
+ButtonStyle, Menu via direkt `label:`-användning) lika, så de alltid ser
+identiska ut oavsett vilken SwiftUI-kontroll som råkar hosta dem.
+
+**Lärdom:** en delad "chrome"-vy som ska se likadan ut oavsett vilken
+SwiftUI-kontroll (`Button` vs `Menu`) den sätts in i måste sätta VARJE
+visuell egenskap uttryckligen (även sådana som "borde" vara defaultvärdet)
+- olika kontroller kan ha olika, odokumenterade fallback-beteenden för
+det man INTE själv anger.
+
 ## 2026-09-26: Uppfann en egen accentfärg istället för att kolla den etablerade
 
 **Symptom:** Byggde ett nytt "80/20"-designspråk för Mac-appen (verktygsrad

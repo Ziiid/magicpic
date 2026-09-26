@@ -107,6 +107,29 @@ och `CLAUDE.md` för arkitektur/vägval.
    Verktygsraden omstrukturerad till tre fasta, meningsfullt grupperade
    rader (historik / redigeringsverktyg / utdata) istället för fri
    radbrytning. Inte omtestad på enhet ännu.
+3k. ✅ Riktiga förhandsgranskningar för Bakgrund och Form (rapporterat
+   2026-09-26: de var bara textmenyer, till skillnad från Filter som redan
+   hade miniatyr-rutnät - samma inkonsekvens som upptäcktes samtidigt som
+   den blåa menytexten nedan). Nya `BackgroundStylePickerView`/
+   `ShapePickerView`, samma mönster som `PhotoFilterPickerView` (rutnät av
+   riktiga renderade miniatyrer, tryck väljer direkt). Bakgrund visar bara
+   de "enkla" valen (genomskinlig/oskärpa/tolv förvalda färger) som
+   miniatyrer - "Fler färger…"/"Egen bild…"/"Justera position…" ligger som
+   vanliga knappar under rutnätet, öppnar sina befintliga flöden
+   oförändrat. Ny `SearchViewModel.previewMask()` återanvänder cachad
+   mask om den finns, annars körs Vision EN gång (utan att fråga om
+   motivval - bara en förhandstitt) och cachar den råa detekteringen så
+   det RIKTIGA valet senare slipper göra om det. Bakgrundsminiatyrerna
+   måste kompositeras i FULL upplösning (masken och bilden måste ha samma
+   koordinatyta) och skalas ner EFTERÅT - dyrare än Filters låg-upplösta
+   genväg, så varje miniatyr körs i sin egen `Task.detached` för att inte
+   blockera huvudtråden. Den gamla färgcirkel-rutan i "Bakgrundsfärg"-
+   sheeten togs bort (redundant med de nya miniatyrerna) - kvar är bara
+   en ren `ColorPicker` för en godtycklig färg, döpt om till "Fler
+   färger". Samtidigt fixat: `Menu`-etiketter utan uttrycklig
+   `.foregroundStyle` tonades automatiskt i systemets accentfärg (blå) -
+   `ToolbarChrome`s `.native`-läge saknade en uttrycklig `.foregroundStyle(.primary)`.
+   Inte omtestad på enhet ännu.
 
 ## Kvar
 

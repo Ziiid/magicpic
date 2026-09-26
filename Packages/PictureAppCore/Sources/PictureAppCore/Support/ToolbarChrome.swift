@@ -47,6 +47,7 @@ public struct ToolbarChrome<Content: View>: View {
         case .native:
             content
                 .font(.callout.weight(.medium))
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(

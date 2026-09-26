@@ -352,6 +352,47 @@ public final class SearchViewModel: ObservableObject {
         (cachedSubjects?.instances.count ?? 0) > 1
     }
 
+    /// Bästa tillgängliga mask för snabba förhandsvisningar - t.ex.
+    /// `BackgroundStylePickerView`s rutnät med riktiga bakgrunds-
+    /// förhandsgranskningar, INNAN användaren faktiskt valt något.
+    /// Återanvänder `cachedMask` om den redan finns (ingen extra kostnad).
+    /// Annars körs Vision EN gång och ALLA hittade motiv slås ihop UTAN
+    /// att fråga om motivval - det här är bara en förhandstitt, inte det
+    /// slutgiltiga valet. Det RIKTIGA valet (`setBackgroundStyle`) går
+    /// fortfarande genom hela, korrekta motivväljar-flödet (frågar om
+    /// motiv vid behov) när användaren faktiskt trycker på ett alternativ.
+    /// Cachar den råa Vision-detekteringen (`cachedSubjects`, bara en
+    /// funktion av BILDEN, inte av motivvalet) om den behövde beräknas här,
+    /// så det riktiga flödet sedan slipper köra Vision igen.
+    public func previewMask() async -> BackgroundRemovalService.ForegroundMask? {
+        guard let original = originalImage else { return nil }
+
+        if cachedMaskSource === original, let mask = cachedMask {
+            return mask
+        }
+
+        let subjects: BackgroundRemovalService.DetectedSubjects
+        if cachedSubjectsSource === original, let cached = cachedSubjects {
+            subjects = cached
+        } else {
+            guard let detected = try? await Task.detached(priority: .userInitiated) { [backgroundRemoval] in
+                try backgroundRemoval.detectSubjects(in: original)
+            }.value else { return nil }
+            // Bilden kan i teorin ha bytts medan Vision körde - skriv bara
+            // till cachen om den fortfarande gäller aktuell bild.
+            if originalImage === original {
+                cachedSubjects = detected
+                cachedSubjectsSource = original
+            }
+            subjects = detected
+        }
+
+        let selection = selectedSubjectIDs ?? Set(subjects.instances.map(\.id))
+        return try? await Task.detached(priority: .userInitiated) { [backgroundRemoval] in
+            try backgroundRemoval.combinedMask(selecting: selection, from: subjects)
+        }.value
+    }
+
     /// Kastar bort allt bakgrunds-/form-/positioneringsval och går tillbaka
     /// till den obehandlade originalbilden - en "ångra allt"-knapp. Ökar
     /// `backgroundGeneration` så en ev. redan pågående `removeBackground()`

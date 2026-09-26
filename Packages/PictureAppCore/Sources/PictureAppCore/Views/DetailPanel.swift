@@ -7,6 +7,8 @@ struct DetailPanel: View {
     @State private var showColorPicker = false
     @State private var showAdjustments = false
     @State private var showPhotoFilters = false
+    @State private var showBackgroundStylePicker = false
+    @State private var showShapePicker = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -239,35 +241,53 @@ struct DetailPanel: View {
                 onCancel: { viewModel.cancelSubjectSelection() }
             )
         }
+        .sheet(isPresented: $showBackgroundStylePicker) {
+            if let original = viewModel.originalImage {
+                BackgroundStylePickerView(
+                    baseImage: original,
+                    currentStyle: viewModel.backgroundStyle,
+                    hasCustomBackground: hasCustomBackground,
+                    onSelect: { viewModel.setBackgroundStyle($0) },
+                    onPickCustomImage: {
+                        showBackgroundStylePicker = false
+                        showBackgroundImporter = true
+                    },
+                    onRepositionCustomImage: {
+                        showBackgroundStylePicker = false
+                        viewModel.beginRepositioningCustomBackground()
+                    },
+                    onPickMoreColors: {
+                        showBackgroundStylePicker = false
+                        showColorPicker = true
+                    },
+                    onDone: { showBackgroundStylePicker = false },
+                    loadPreviewMask: { await viewModel.previewMask() }
+                )
+            }
+        }
+        .sheet(isPresented: $showShapePicker) {
+            if let original = viewModel.originalImage {
+                ShapePickerView(
+                    baseImage: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
+                    transform: viewModel.outputShapeTransform,
+                    currentShape: viewModel.outputShape,
+                    onSelect: { viewModel.setOutputShape($0) },
+                    onDone: { showShapePicker = false }
+                )
+            }
+        }
+        // Bara "Fler färger…" (en godtycklig färg via systemets ColorPicker)
+        // kvar här - de förvalda färgerna visas nu som RIKTIGA
+        // förhandsgranskningar i `BackgroundStylePickerView`s eget rutnät
+        // istället för en dubblett-uppsättning cirklar här (rapporterat
+        // 2026-09-26).
         .sheet(isPresented: $showColorPicker) {
             VStack(spacing: 20) {
-                Text("Bakgrundsfärg")
+                Text("Fler färger")
                     .font(.headline)
 
-                // Vanliga färger direkt klickbara - innan krävdes ett extra
-                // klick på ColorPicker-swatchen för att öppna systemets
-                // färgpanel bara för att välja en vanlig färg (rapporterat
-                // 2026-09-25).
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-                    ForEach(Self.presetColors, id: \.self) { color in
-                        Button {
-                            viewModel.setBackgroundStyle(.color(color))
-                            showColorPicker = false
-                        } label: {
-                            Circle()
-                                .fill(color)
-                                .frame(width: 32, height: 32)
-                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
-                                .overlay(Circle().strokeBorder(AppTheme.accent, lineWidth: isSelectedColor(color) ? 3 : 0))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                Divider()
-
                 ColorPicker(
-                    "Fler färger…",
+                    "Bakgrundsfärg",
                     selection: Binding(
                         get: {
                             if case .color(let color) = viewModel.backgroundStyle { return color }
@@ -285,18 +305,8 @@ struct DetailPanel: View {
                 }
             }
             .padding(24)
-            .frame(minWidth: 320, minHeight: 280)
+            .frame(minWidth: 320, minHeight: 160)
         }
-    }
-
-    private static let presetColors: [Color] = [
-        .white, .black, .gray, .red, .orange, .yellow,
-        .green, .mint, .teal, .blue, .purple, .pink,
-    ]
-
-    private func isSelectedColor(_ color: Color) -> Bool {
-        if case .color(let current) = viewModel.backgroundStyle { return current == color }
-        return false
     }
 
     private var previewAspectRatio: CGFloat {
@@ -332,50 +342,19 @@ struct DetailPanel: View {
     // och förblir därför native oavsett hur "viktiga" de känns i
     // användningen.
     //
-    // Se `ToolbarChrome.swift`s dokumentationskommentar för varför ett
-    // `Menu` (som inte är en `Button`) använder `ToolbarChrome` direkt som
-    // sitt `label:`-innehåll istället för `.buttonStyle(_:)`.
+    // Öppnar `BackgroundStylePickerView` (riktiga förhandsgranskningar,
+    // rapporterat 2026-09-26 att Bakgrund/Form saknade det Filter redan
+    // hade) istället för en textmeny. Fortfarande hero-stil på själva
+    // utlösarknappen - bara INTERAKTIONEN (sheet med rutnät, som Filter)
+    // ändras, inte hur knappen ser ut.
     private var backgroundMenu: some View {
-        Menu {
-            Button {
-                viewModel.setBackgroundStyle(.transparent)
-            } label: {
-                Label("Ingen (genomskinlig)", systemImage: "checkerboard.rectangle")
-            }
-
-            Button {
-                viewModel.setBackgroundStyle(.blurredOriginal)
-            } label: {
-                Label("Oskärpa av originalet", systemImage: "drop.fill")
-            }
-
-            Button {
-                showColorPicker = true
-            } label: {
-                Label("Färg…", systemImage: "paintpalette")
-            }
-
-            Button {
-                showBackgroundImporter = true
-            } label: {
-                Label("Egen bild…", systemImage: "photo")
-            }
-
-            if hasCustomBackground {
-                Button {
-                    viewModel.beginRepositioningCustomBackground()
-                } label: {
-                    Label("Justera position…", systemImage: "arrow.up.and.down.and.arrow.left.and.right")
-                }
-            }
+        Button {
+            showBackgroundStylePicker = true
         } label: {
             ToolbarChrome(tier: .hero) {
                 HStack(spacing: 6) {
                     Image(systemName: "photo.fill")
                     Text("Bakgrund")
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 9, weight: .bold))
-                        .opacity(0.85)
                 }
             }
         }
@@ -431,15 +410,11 @@ struct DetailPanel: View {
         .shadow(color: AppTheme.accent.opacity(0.3), radius: 6, y: 2)
     }
 
+    // Öppnar `ShapePickerView` (riktiga förhandsgranskningar) istället för
+    // en textmeny - samma anledning som `backgroundMenu` ovan.
     private var shapeMenu: some View {
-        Menu {
-            ForEach(OutputShape.allCases) { shape in
-                Button {
-                    viewModel.setOutputShape(shape)
-                } label: {
-                    Label(shape.label, systemImage: shape.systemImage)
-                }
-            }
+        Button {
+            showShapePicker = true
         } label: {
             ToolbarChrome(tier: .native) {
                 Label("Form", systemImage: "square.on.circle")
