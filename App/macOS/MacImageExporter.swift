@@ -8,14 +8,14 @@ import PictureAppCore
 struct MacImageExporter: ImageExporter {
     enum ExportError: LocalizedError {
         case noData
-        var errorDescription: String? { "Kunde inte skapa PNG-data." }
+        var errorDescription: String? { "Kunde inte skapa bilddata." }
     }
 
-    func export(image: PlatformImage, suggestedName: String) async throws {
-        guard let data = image.pngData() else { throw ExportError.noData }
+    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws {
+        guard let data = image.exportData(as: format) else { throw ExportError.noData }
 
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.png]
+        panel.allowedContentTypes = [format.utType]
         panel.nameFieldStringValue = suggestedName
 
         let url: URL? = await withCheckedContinuation { continuation in

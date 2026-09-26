@@ -106,6 +106,33 @@ public extension PlatformImage {
         guard let output = CIContext().createCGImage(scaled, from: scaled.extent) else { return self }
         return PlatformImage(cgImageRepresentation: output)
     }
+
+    /// Kodar bilden till valt exportformat (se `ImageExportFormat`, använd
+    /// av "Spara"/"Dela") - `pngData()`/`jpegData(compressionQuality:)`
+    /// finns redan var för sig per plattform, men själva VALET av format
+    /// (och JPEG-specialfallet nedan) hör hemma i delad kod.
+    func exportData(as format: ImageExportFormat) -> Data? {
+        switch format {
+        case .png:
+            return pngData()
+        case .jpeg:
+            // JPEG saknar en alfakanal - en genomskinlig bakgrund (t.ex.
+            // "Ingen (genomskinlig)"-valet) skulle annars kodas med
+            // odefinierat/svart innehåll istället för det vita de flesta
+            // bildvisare och sociala medier förväntar sig av en JPEG utan
+            // genomskinlighet.
+            return flattenedOverWhite().jpegData(compressionQuality: 0.9)
+        }
+    }
+
+    private func flattenedOverWhite() -> PlatformImage {
+        guard let cgImage = cgImageRepresentation else { return self }
+        let ciImage = CIImage(cgImage: cgImage)
+        let white = CIImage(color: .white).cropped(to: ciImage.extent)
+        let flattened = ciImage.composited(over: white)
+        guard let output = CIContext().createCGImage(flattened, from: ciImage.extent) else { return self }
+        return PlatformImage(cgImageRepresentation: output)
+    }
 }
 
 #if os(macOS)
@@ -114,6 +141,15 @@ public extension NSImage {
         guard let tiffData = tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData) else { return nil }
         return bitmap.representation(using: .png, properties: [:])
+    }
+
+    /// UIImage har `jpegData(compressionQuality:)` inbyggt - NSImage saknar
+    /// motsvarighet, så den byggs här av samma anledning/på samma sätt som
+    /// `pngData()` ovan.
+    func jpegData(compressionQuality: CGFloat) -> Data? {
+        guard let tiffData = tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData) else { return nil }
+        return bitmap.representation(using: .jpeg, properties: [.compressionFactor: compressionQuality])
     }
 }
 #endif

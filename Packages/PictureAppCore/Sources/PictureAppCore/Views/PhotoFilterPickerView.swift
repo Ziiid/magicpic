@@ -33,7 +33,7 @@ struct PhotoFilterPickerView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .strokeBorder(filter == currentFilter ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: filter == currentFilter ? 3 : 1)
+                                            .strokeBorder(filter == currentFilter ? AppTheme.accent : Color.secondary.opacity(0.2), lineWidth: filter == currentFilter ? 3 : 1)
                                     )
                                 Text(filter.label)
                                     .font(.caption2)

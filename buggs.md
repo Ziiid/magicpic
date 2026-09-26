@@ -3,6 +3,119 @@
 Logg över buggar som upptäckts under utveckling, med symptom, rotorsak och
 fix, så att liknande misstag inte upprepas. Nyast överst.
 
+## 2026-09-26: Uppfann en egen accentfärg istället för att kolla den etablerade
+
+**Symptom:** Byggde ett nytt "80/20"-designspråk för Mac-appen (verktygsrad
+med diskreta nativa knappar + ett fåtal "hero"-actions i en accentfärg) och
+valde en egen varm terrakotta (`#c96a4a`) som accentfärg, uppfunnen på
+plats utan att fråga eller undersöka om användaren redan hade en
+etablerad varumärkesidentitet. Användaren fick sedan uttryckligen peka ut
+det: "kolla runt i repona! du har ju byggt tre appar åt mig och alla har
+samma grön."
+
+**Rotorsak:** Letade aldrig utanför `magicpic`-repot efter en etablerad
+varumärkesfärg, trots att projektmappen ligger under `~/Doxtail-projekt/`
+tillsammans med flera andra appar för samma användare/varumärke (Persona,
+dog-id, dogish, doxtail-web m.fl.) - en enkel `grep` efter hex-koder/
+"accent"/"primary" i systerprojekten hade hittat `#6aab8a` ("Primär
+(salvia-grön)", uttryckligen dokumenterat i flera av de andra projektens
+egna CLAUDE.md/AGENTS.md) på under en minut. Antog istället att en ny,
+fristående app "får" en helt egen färg utan att det uttryckligen
+efterfrågats.
+
+**Fix:** `AppTheme.accent` bytt till `#6aab8a` (verifierat mot
+`doxtail-web/src/App.css` och flera andra repons `--green`/"Primär"-
+deklarationer). Passade även på att göra ALLA "aktivt/valt"-indikatorer
+i appen konsekventa med samma gröna istället för `Color.accentColor`
+(systemets egen, användarberoende accentfärg) - se `CLAUDE.md`s "Bakgrund
+/ vägval som redan är tagna" för den fullständiga listan över vad som
+ändrades och varför.
+
+**Lärdom:** för EN användare som redan har flera egna produkter/appar i
+angränsande projektmappar, anta ALDRIG att en ny app får en helt fri,
+egen visuell identitet - sök igenom syskonprojekten (särskilt
+`CLAUDE.md`/`AGENTS.md`/CSS-variabler/design-tokens-filer) efter en
+redan etablerad varumärkespalett INNAN en accentfärg/logotyp/typsnitt
+väljs, precis som man skulle läsa `buggs.md` innan man rör en riskfylld
+del av EN app. "Vilken färg känns snygg" är fel fråga att ställa sig
+själv när svaret redan finns dokumenterat någon annanstans.
+
+## 2026-09-26: Att ändra motivval en andra gång ("Motiv…") gjorde ingenting
+
+**Symptom:** Hittades INTE via manuell testning utan genom kodgranskning
+när undo/redo-historiken byggdes och `cachedMask`-flödet spårades i
+detalj. Scenario: användaren kör "Ta bort bakgrund" på en bild med flera
+motiv, väljer t.ex. bara person 1 i motivväljaren - fungerar. Öppnar sedan
+"Motiv…" igen och väljer istället bara person 2 (eller båda) - resultatet
+hade INTE ändrats, den gamla (person 1-bara) bilden hade blivit kvar trots
+ett nytt, bekräftat val.
+
+**Rotorsak:** `confirmSubjectSelection(_:)` satte `selectedSubjectIDs`
+till det nya valet och anropade `removeBackground()`, men rörde ALDRIG
+`cachedMask`/`cachedMaskSource` - som sedan FÖRRA bekräftelsen redan
+pekade på en giltig, ihopslagen mask för samma bild.
+`removeBackground()`s egen snabbväg
+(`if cachedMaskSource === original, let mask = cachedMask`) är designad
+för att slippa köra om Vision när man bara byter bakgrundsstil/form/
+filter - men den kollar bara "är det samma BILD", inte "är masken
+fortfarande giltig för det AKTUELLA motivvalet". Den tolkade alltså det
+nya motivvalet som "inget att göra, återanvänd cachad mask" och
+komponerade om med FÖRRA valets mask.
+
+**Fix:** `confirmSubjectSelection(_:)` nollställer nu explicit
+`cachedMask`/`cachedMaskSource` INNAN `removeBackground()` anropas, så
+snabbvägen aldrig kan slå till felaktigt - tvingar fram en riktig
+omberäkning av den kombinerade masken (`combinedMask(selecting:from:)`,
+billig - ingen ny Vision-analys behövs) för det nya valet.
+
+**Lärdom:** en cache-nyckel baserad på "samma KÄLLA" (här: samma bild)
+räcker inte om resultatet också beror på ett SEPARAT, föränderligt val
+(här: vilka instanser som är valda) - varje plats som skriver till en
+sådan cache måste själv ogiltigförklara den när just DEN datan ändras,
+annars littar en annan käll-baserad snabbväg på fel data. Upptäcktes bara
+för att en helt annan funktion (undo/redo) krävde att spåra exakt när och
+var `cachedMask` faktiskt ändras - ett skäl att läsa igenom hela
+dataflödet för ett fält när man bygger något som beror på det, inte bara
+de ställen man TROR är relevanta.
+
+## 2026-09-26: Motivväljaren frågar inte om två personer som står nära varandra
+
+**Symptom:** Testade den nya motivväljaren (se `roadmap.md` 3g) på en bild
+med två personer - väljaren dök aldrig upp, "Ta bort bakgrund" behöll bara
+båda som vanligt, precis som innan funktionen fanns. Inte en synlig krasch
+eller ett felmeddelande, bara tyst avsaknad av valet.
+
+**Rotorsak:** INTE en bugg i `SubjectPickerView`/`SearchViewModel` - lade
+till en tillfällig diagnostikutskrift (`[SubjectDetection]`, samma mönster
+som `handleDrop`s `#if DEBUG`-loggning nedan) i
+`SearchViewModel.removeBackground()` och bekräftade att
+`VNGenerateForegroundInstanceMaskRequest` (Visions egen analys, INNAN vår
+kod ens ser resultatet) själv bara rapporterade **EN** instans för den
+testbilden, med en bounding box som täckte nästan hela bilden
+(`(0.025, 0.025, 0.975, 0.975)`, dvs. ~2,5% marginal runt om). De två
+personerna stod tätt ihop och fyllde bilden kant till kant - det absolut
+vanligaste sättet att fotografera två personer tillsammans - och Vision
+slog ihop dem till EN sammanhängande förgrundsyta. `detectSubjects`/
+`removeBackground()` gjorde exakt vad som begärts ("Om bara ett motiv
+hittas ska nuvarande flöde fortsätta utan extra steg") - problemet är att
+Vision själv inte alltid RÄKNAR två tätt sammanslagna personer som två
+motiv.
+
+**Lärdom:** `VNGenerateForegroundInstanceMaskRequest` separerar
+"instanser" genom VISUELL särskiljbarhet (kantdetektion/saliency), inte
+person-medveten förståelse av "det här är två olika människor". Fungerar
+pålitligt för tydligt fysiskt SEPARERADE motiv (en hund bredvid, inte
+lutad mot, en person; två föremål med synligt mellanrum) men inte för
+motiv som överlappar eller står i fysisk kontakt med varandra - oavsett om
+de är semantiskt olika saker (två personer) eller ej. Det finns ingen
+annan on-device Vision-API som gör personmedveten instanssegmentering
+(`VNGeneratePersonSegmentationRequest` ger en enda sammanslagen
+"alla-människor"-mask, inte per-person; `VNDetectHumanRectanglesRequest`
+ger bara rektanglar, ingen pixelexakt mask). Se `CLAUDE.md` för en kort
+notis om samma sak i "Kända begränsningar". Inte fixat, och sannolikt
+inte fixbart utan en betydligt större, experimentell lösning (se
+`roadmap.md`) - dokumenterat här så att samma undersökning inte görs om.
+
 ## 2026-09-25: Går inte att dra in en ChatGPT-genererad bild
 
 **Symptom:** Efter att ha bytt webbsökning mot att öppna en riktig

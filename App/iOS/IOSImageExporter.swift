@@ -12,14 +12,21 @@ struct IOSImageExporter: ImageExporter {
 
         var errorDescription: String? {
             switch self {
-            case .noData: return "Kunde inte skapa PNG-data."
+            case .noData: return "Kunde inte skapa bilddata."
             case .permissionDenied: return "PictureApp saknar behörighet att spara i Foton."
             }
         }
     }
 
-    func export(image: PlatformImage, suggestedName: String) async throws {
-        guard image.pngData() != nil else { throw ExportError.noData }
+    /// `format` avgör bara "Dela"-flödets fil (se `SearchViewModel.
+    /// refreshShareURL()`) och Mac-sparflödet - Foton-biblioteket sparas
+    /// alltid i sitt naturliga format via `creationRequestForAsset` (bevarar
+    /// redan genomskinlighet för källor med alfakanal). Att själv styra
+    /// exakt JPEG/PNG-kodning för Foton-sparningen kräver en lägre nivås
+    /// API (`PHAssetCreationRequest.addResource`) - inte värt
+    /// riskökningen för den marginella nyttan här.
+    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws {
+        guard image.exportData(as: format) != nil else { throw ExportError.noData }
 
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard status == .authorized || status == .limited else {

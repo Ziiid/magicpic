@@ -77,6 +77,21 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen. Se även
 
 ## Kända begränsningar / risker att hålla koll på
 
+- Motivväljaren (flera motiv i `removeBackground()`, se `roadmap.md` 3g)
+  frågar bara när `VNGenerateForegroundInstanceMaskRequest` SJÄLV
+  rapporterar fler än en instans - bekräftat 2026-09-26 med diagnostik
+  (tillfällig `[SubjectDetection]`-loggning i `SearchViewModel.
+  removeBackground()`, `#if DEBUG`): Vision separerar instanser genom
+  VISUELL särskiljbarhet, inte personmedveten förståelse, så två personer
+  som står tätt ihop/fyller bilden kant till kant (det vanligaste sättet
+  att fotografera två personer tillsammans!) slås ofta ihop till EN
+  instans redan i Visions egen analys - väljaren visas då aldrig, precis
+  som för en bild med bara ett motiv, fast det egentligen är två. Fungerar
+  pålitligt för TYDLIGT fysiskt separerade motiv (en hund bredvid, inte
+  lutad mot, en person). Ingen känd fix - `VNGeneratePersonSegmentationRequest`
+  ger bara en enda sammanslagen mask, inte per person. Se `buggs.md`
+  ("Motivväljaren frågar inte om två personer som står nära varandra") för
+  hela undersökningen.
 - Drag-and-drop av en bild FRÅN chatgpt.com (webbläsaren, inte den
   fristående Mac-appen) in i appen fungerar INTE, och går inte att fixa
   klientsidan - bekräftat 2026-09-26 med diagnostik
@@ -139,6 +154,37 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen. Se även
 
 ## Bakgrund / vägval som redan är tagna
 
+- **Appens enda accentfärg är Doxtail-grön, `#6aab8a` (`AppTheme.accent` i
+  `PictureAppCore/Support/AppTheme.swift`)** - SAMMA salvia-gröna som
+  redan används genomgående i övriga Doxtail-appar (dog-id/Dogish/
+  Persona/doxtail-web, dokumenterat som "Primär (salvia-grön)" i deras
+  egna CLAUDE.md/AGENTS.md) - inte en ny färg uppfunnen för just den här
+  appen (en tidigare session gjorde precis det misstaget, se
+  `buggs.md` 2026-09-26). Grönt signalerar ALLTID "aktivt/valt/primärt"
+  (hero-knappar, valt filter, valt motiv, drop-target-highlight, vald
+  bakgrundsfärgs markering) - `Color.accentColor` (systemets egen,
+  användarberoende accentfärg) ska ALDRIG användas, exakt av det skälet.
+  `AppTheme.onAccent` är den varma off-white:en (`#faf9f7`, INTE rent
+  vitt) att lägga OVANPÅ `accent`. Hitta INTE på en ny ton om en annan
+  session/uppgift vill ändra något visuellt - fråga användaren istället
+  om det verkligen är tänkt att avvika från den etablerade paletten.
+  Den faktiska app-ikonen (`AppLogo.imageset/logo.png`) har en mycket
+  ljusare, mer neon-lime grön (`#cdfc3a`) - det är IKONENS egen färg, inte
+  samma sak som UI-accentfärgen ovan (för mörk kontrast med vit text för
+  att fungera som knappfyllning) - blanda inte ihop dem.
+- **Verktygsradens knappar följer ett "80/20"-designspråk** (`ToolbarChrome`
+  i `PictureAppCore/Support/`): de flesta kontrollerna är diskreta,
+  konturerade `.nativeToolbar`-knappar, men EXAKT TVÅ kontroller - Bakgrund
+  och Exportera (Spara+Dela) - får en rundad pill i accentfärgen
+  (`ToolbarChrome(tier: .hero)`). Regeln för VILKA som är hero är appens
+  egen enderadsbeskrivning högst upp i den här filen - "ta bort/byta
+  bakgrund... och spara resultatet" ÄR kärnlöftet, allt annat (Form,
+  Filter, Justera, Motiv, Finjustera/pensel) är stödjande verktyg INOM det
+  löftet, inte löftet i sig, och ska förbli native oavsett hur ofta de
+  används. Utöka INTE hero-listan utan att den nya kontrollen faktiskt
+  uppfyller den regeln - se `buggs.md` 2026-09-26 för hur en tidigare,
+  löst motiverad hero-lista (tre kontroller) fick skäras ner till två
+  efter granskning.
 - Webbsökning: appen anropar INGEN bildsöks-API längre (Unsplash togs
   bort 2026-09-25). Istället öppnas en riktig webbkälla
   (`WebSearchEngine`: Google/Pinterest för att SÖKA, ChatGPT - via

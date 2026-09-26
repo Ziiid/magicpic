@@ -160,7 +160,7 @@ public struct ContentView: View {
         .overlay {
             if isDropTargeted {
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .strokeBorder(AppTheme.accent, lineWidth: 3)
                     .padding(6)
                     .allowsHitTesting(false)
             }

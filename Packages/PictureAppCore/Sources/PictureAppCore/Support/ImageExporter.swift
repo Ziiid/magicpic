@@ -6,5 +6,5 @@ import Foundation
 /// implementation.
 @MainActor
 public protocol ImageExporter {
-    func export(image: PlatformImage, suggestedName: String) async throws
+    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws
 }
