@@ -37,9 +37,9 @@ struct SubjectPickerView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("Flera motiv hittades")
+            Text(L("Flera motiv hittades"))
                 .font(.headline)
-            Text("Välj vilket eller vilka motiv som ska behållas.")
+            Text(L("Välj vilket eller vilka motiv som ska behållas."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -93,17 +93,24 @@ struct SubjectPickerView: View {
             .background(CheckerboardBackground())
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            Text("\(selected.count) av \(instances.count) motiv valda")
+            Text(L("\(selected.count) av \(instances.count) motiv valda"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack {
-                Button("Avbryt", role: .cancel) { onCancel() }
+                Button(L("Avbryt"), role: .cancel) { onCancel() }
                 Spacer()
-                Button("Klart") { onDone(selected) }
+                Button(L("Klart")) { onDone(selected) }
                     .keyboardShortcut(.defaultAction)
                     .disabled(selected.isEmpty)
-                    .help(selected.isEmpty ? "Välj minst ett motiv." : "")
+                    // Uttryckligen `String(localized:)` i BÅDA grenarna -
+                    // INTE en ternary med en bar bokstavlig sträng i ena
+                    // grenen, av samma anledning som `MaskEditorView`s
+                    // paint/navigera-text (se kommentaren där): en ternary
+                    // tvingar fram en gemensam `String`-typ innan
+                    // `.help(...)`s överlagringar väljs, vilket annars tyst
+                    // ger den icke-lokaliserande varianten.
+                    .help(selected.isEmpty ? String(localized: "Välj minst ett motiv.", bundle: .module, locale: AppLanguage.current.locale) : "")
             }
         }
         .padding(24)

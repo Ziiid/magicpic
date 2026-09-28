@@ -26,7 +26,7 @@ struct ImageAdjustmentsView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Justera bilden")
+            Text(L("Justera bilden"))
                 .font(.headline)
 
             // Egen förhandsvisning HÄR i panelen - annars är det svårt att
@@ -45,23 +45,23 @@ struct ImageAdjustmentsView: View {
 
             ScrollView {
                 VStack(spacing: 14) {
-                    slider("Ljusstyrka", systemImage: "sun.max", value: $adjustments.brightness, range: -1...1)
-                    slider("Kontrast", systemImage: "circle.lefthalf.filled", value: $adjustments.contrast, range: -1...1)
-                    slider("Mättnad", systemImage: "drop", value: $adjustments.saturation, range: -1...1)
-                    slider("Temperatur", systemImage: "thermometer.sun", value: $adjustments.temperature, range: -1...1)
+                    slider(L("Ljusstyrka"), systemImage: "sun.max", value: $adjustments.brightness, range: -1...1)
+                    slider(L("Kontrast"), systemImage: "circle.lefthalf.filled", value: $adjustments.contrast, range: -1...1)
+                    slider(L("Mättnad"), systemImage: "drop", value: $adjustments.saturation, range: -1...1)
+                    slider(L("Temperatur"), systemImage: "thermometer.sun", value: $adjustments.temperature, range: -1...1)
                     Divider()
                     slider("Highlights", systemImage: "sun.min", value: $adjustments.highlights, range: 0...1)
                     slider("Shadows", systemImage: "moon", value: $adjustments.shadows, range: 0...1)
                     Divider()
-                    slider("Skärpa", systemImage: "triangle", value: $adjustments.sharpness, range: 0...1)
-                    slider("Brusreducering", systemImage: "aqi.medium", value: $adjustments.noiseReduction, range: 0...1)
-                    slider("Vinjett", systemImage: "circle.dashed", value: $adjustments.vignette, range: 0...1)
+                    slider(L("Skärpa"), systemImage: "triangle", value: $adjustments.sharpness, range: 0...1)
+                    slider(L("Brusreducering"), systemImage: "aqi.medium", value: $adjustments.noiseReduction, range: 0...1)
+                    slider(L("Vinjett"), systemImage: "circle.dashed", value: $adjustments.vignette, range: 0...1)
                 }
                 .padding(.horizontal, 4)
             }
 
             HStack {
-                Button("Återställ justeringar") {
+                Button(L("Återställ justeringar")) {
                     adjustments = .identity
                     onChange(adjustments)
                 }
@@ -69,7 +69,7 @@ struct ImageAdjustmentsView: View {
 
                 Spacer()
 
-                Button("Klart") { onDone() }
+                Button(L("Klart")) { onDone() }
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -77,6 +77,9 @@ struct ImageAdjustmentsView: View {
         .frame(minWidth: 340, idealWidth: 380, minHeight: 480, idealHeight: 560)
     }
 
+    // `title: String`, redan lokaliserad av anropsstället (`L(...)`) - INTE
+    // `LocalizedStringKey`, se `CLAUDE.md`s lokaliseringsavsnitt/
+    // `ImagePositionerView`s motsvarande kommentar för varför.
     private func slider(_ title: String, systemImage: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {

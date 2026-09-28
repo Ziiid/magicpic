@@ -40,6 +40,15 @@ struct MaskEditorView: View {
         case paint = "Måla"
         case navigate = "Navigera"
         var id: String { rawValue }
+
+        // Lokaliserad visningstext - INTE `rawValue` direkt, se `ImageSourceKind.label`.
+        var label: String {
+            let locale = AppLanguage.current.locale
+            switch self {
+            case .paint: return String(localized: "Måla", bundle: .module, locale: locale)
+            case .navigate: return String(localized: "Navigera", bundle: .module, locale: locale)
+            }
+        }
     }
 
     init(baseImage: PlatformImage, editableMask: EditableMask, onDone: @escaping (EditableMask) -> Void, onCancel: @escaping () -> Void) {
@@ -52,13 +61,17 @@ struct MaskEditorView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("Finjustera urklippet")
+            Text(L("Finjustera urklippet"))
                 .font(.headline)
-            Text(mode == .paint
-                 ? "Dra för att lägga till eller ta bort delar av motivet."
-                 : "Dra för att panorera, nyp för att zooma in och måla precisare.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if mode == .paint {
+                Text(L("Dra för att lägga till eller ta bort delar av motivet."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(L("Dra för att panorera, nyp för att zooma in och måla precisare."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             GeometryReader { geo in
                 let containerSize = geo.size
@@ -129,28 +142,28 @@ struct MaskEditorView: View {
             .background(Color.black.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            Picker("Läge", selection: $mode) {
-                ForEach(Mode.allCases) { m in Text(m.rawValue).tag(m) }
+            Picker(L("Läge"), selection: $mode) {
+                ForEach(Mode.allCases) { m in Text(m.label).tag(m) }
             }
             .pickerStyle(.segmented)
 
             if mode == .paint {
-                Picker("Pensel", selection: $isAdding) {
-                    Text("Lägg till").tag(true)
-                    Text("Ta bort").tag(false)
+                Picker(L("Pensel"), selection: $isAdding) {
+                    Text(L("Lägg till")).tag(true)
+                    Text(L("Ta bort")).tag(false)
                 }
                 .pickerStyle(.segmented)
 
                 HStack {
-                    Text("Penselstorlek")
+                    Text(L("Penselstorlek"))
                     Slider(value: $brushRadius, in: 10...80)
                 }
             }
 
             HStack {
-                Button("Avbryt", role: .cancel) { onCancel() }
+                Button(L("Avbryt"), role: .cancel) { onCancel() }
                 Spacer()
-                Button("Klart") { onDone(editableMask) }
+                Button(L("Klart")) { onDone(editableMask) }
                     .keyboardShortcut(.defaultAction)
             }
         }

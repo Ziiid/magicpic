@@ -1,3 +1,4 @@
+import Foundation
 import UniformTypeIdentifiers
 
 /// Filformat att spara/dela slutresultatet i - se `PlatformImage.exportData(as:)`
@@ -11,9 +12,10 @@ public enum ImageExportFormat: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
 
     public var label: String {
+        let locale = AppLanguage.current.locale
         switch self {
-        case .png: return "PNG (med genomskinlighet)"
-        case .jpeg: return "JPEG (mindre fil)"
+        case .png: return String(localized: "PNG (med genomskinlighet)", bundle: .module, locale: locale)
+        case .jpeg: return String(localized: "JPEG (mindre fil)", bundle: .module, locale: locale)
         }
     }
 

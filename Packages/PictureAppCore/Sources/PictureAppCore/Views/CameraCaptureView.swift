@@ -15,9 +15,9 @@ struct CameraCaptureView: View {
                 .ignoresSafeArea()
         } else {
             VStack(spacing: 16) {
-                Text("Ingen kamera hittades på den här enheten.")
+                Text(L("Ingen kamera hittades på den här enheten."))
                     .multilineTextAlignment(.center)
-                Button("Stäng") { onCancel() }
+                Button(L("Stäng")) { onCancel() }
             }
             .padding(24)
         }
@@ -80,7 +80,7 @@ struct CameraCaptureView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Ta en bild")
+            Text(L("Ta en bild"))
                 .font(.headline)
 
             ZStack {
@@ -98,7 +98,7 @@ struct CameraCaptureView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             HStack {
-                Button("Avbryt", role: .cancel) {
+                Button(L("Avbryt"), role: .cancel) {
                     model.stop()
                     onCancel()
                 }
@@ -111,7 +111,7 @@ struct CameraCaptureView: View {
                         }
                     }
                 } label: {
-                    Label("Ta bild", systemImage: "camera.fill")
+                    Label(L("Ta bild"), systemImage: "camera.fill")
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(model.errorMessage != nil)
@@ -135,7 +135,7 @@ private final class MacCameraModel: NSObject, ObservableObject {
         Task {
             let granted = await AVCaptureDevice.requestAccess(for: .video)
             guard granted else {
-                errorMessage = "PictureApp saknar behörighet att använda kameran. Godkänn i Systeminställningar > Sekretess och säkerhet > Kamera."
+                errorMessage = String(localized: "XtraPic saknar behörighet att använda kameran. Godkänn i Systeminställningar > Sekretess och säkerhet > Kamera.", bundle: .module, locale: AppLanguage.current.locale)
                 return
             }
             configureSessionIfNeeded()
@@ -159,13 +159,13 @@ private final class MacCameraModel: NSObject, ObservableObject {
         guard let device = AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input) else {
-            errorMessage = "Hittade ingen kamera."
+            errorMessage = String(localized: "Hittade ingen kamera.", bundle: .module, locale: AppLanguage.current.locale)
             return
         }
         session.addInput(input)
 
         guard session.canAddOutput(photoOutput) else {
-            errorMessage = "Kunde inte konfigurera kameran."
+            errorMessage = String(localized: "Kunde inte konfigurera kameran.", bundle: .module, locale: AppLanguage.current.locale)
             return
         }
         session.addOutput(photoOutput)

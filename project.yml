@@ -35,8 +35,13 @@ targets:
         PRODUCT_NAME: PictureApp
         PRODUCT_BUNDLE_IDENTIFIER: com.tobias.pictureapp
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: PictureApp
-        INFOPLIST_KEY_NSCameraUsageDescription: "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen."
+        INFOPLIST_KEY_CFBundleDisplayName: XtraPic
+        # macOS Finder/Dock-tooltips visar CFBundleName, INTE
+        # CFBundleDisplayName (som mest är en iOS-grej) - utan den här
+        # föll namnet tillbaka på PRODUCT_NAME ("PictureApp"), rapporterat
+        # 2026-09-28.
+        INFOPLIST_KEY_CFBundleName: XtraPic
+        INFOPLIST_KEY_NSCameraUsageDescription: "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen."
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.graphics-design
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
@@ -52,11 +57,12 @@ targets:
     settings:
       base:
         PRODUCT_NAME: PictureApp
-        PRODUCT_BUNDLE_IDENTIFIER: com.tobias.pictureapp.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.tobias.pictureapp
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: PictureApp
+        INFOPLIST_KEY_CFBundleDisplayName: XtraPic
+        INFOPLIST_KEY_CFBundleName: XtraPic
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_NSCameraUsageDescription: "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen."
-        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "PictureApp sparar den bearbetade bilden i ditt Foton-bibliotek."
+        INFOPLIST_KEY_NSCameraUsageDescription: "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen."
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "XtraPic sparar den bearbetade bilden i ditt Foton-bibliotek."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"

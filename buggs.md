@@ -3,6 +3,123 @@
 Logg över buggar som upptäckts under utveckling, med symptom, rotorsak och
 fix, så att liknande misstag inte upprepas. Nyast överst.
 
+## 2026-09-26: Fotoautomat-remsan visades bara till hälften (2 av 4 bilder)
+
+**Symptom:** Rapporterat av användaren direkt efter att Fotoautomat-stilen
+lagts till: valde man den syntes bara en beskuren bit av remsan - ungefär
+två halva rutor istället för alla fyra.
+
+**Rotorsak:** `DetailPanel`s huvudbildyta visar ALLTID `compositedImage ??
+adjustedPreviewImage ?? original` inuti `SubjectFramingCanvas`, som ALLTID
+klipper sitt innehåll till vald `outputShape` (kvadrat som standard) - det
+är hela poängen med den ytan för vanliga bilder (motivramning). Men INNAN
+en riktig bakgrundsborttagning körts (`compositedImage` fortfarande `nil`)
+är `adjustedPreviewImage` för Fotoautomat/Polaroid redan HELA den färdiga,
+höga/smala remsan eller ramen (se `PhotoFilterService.apply` - look+layout
+ihop) - att tvinga en hög, smal 4-bildersremsa in i en kvadrat visar
+oundvikligen bara en beskuren bit av mitten, aldrig alla fyra rutor.
+
+**Fix:** `DetailPanel` visar nu Polaroid/Fotoautomats `adjustedPreviewImage`
+oklippt (`.aspectRatio(contentMode: .fit)`, inget `SubjectFramingCanvas`,
+ingen drag-/nyp-ramning - det finns inget meningsfullt att positionera för
+en redan färdig remsa/ram) NÄR `compositedImage` fortfarande är `nil`. Ny
+`PhotoFilter.isLayoutStyle` avgör vilka stilar (`.polaroid`, `.photobooth`,
+`.photoboothMono`) som tar den vägen. Efter en riktig bakgrundsborttagning
+visar samma yta istället `compositedImage` (motivet, bakgrundsbytt men INTE
+ännu formbeskuret/inramat) i den vanliga ramningsytan som vanligt - det är
+fortfarande bara MOTIVET, aldrig den inramade remsan, se `applyPipeline`s
+dokumentation.
+
+**Lärdom:** En delad "visa aktuell bild"-yta som antar en viss form/
+bildförhållande (här: kvadrat-klippning för motivramning) håller bara så
+länge ALLA bilder som kan hamna där faktiskt förväntas ha det
+bildförhållandet. En ny stil som medvetet ändrar bildens EGNA
+bildförhållande (ram/flerbildsremsa) måste kontrolleras mot VARJE plats som
+visar "den aktuella bilden", inte bara mot bakgrunds-/formberäknings-
+pipelinen (som redan fixades separat samma dag) - en UI-yta kan gå sönder
+på ett helt annat sätt än backend-pipelinen även när backend-datan i sig är
+korrekt.
+
+## 2026-09-26: "Dela" (t.ex. SMS) skickade originalbilden, inte redigeringen
+
+**Symptom:** Rapporterat av användaren, som kände igen mönstret från
+Persona/SayFrame-repot (`kritisk export-bugfix`, 2026-08-17 där): redigera
+en bild (filter/justeringar) och tryck sedan "Dela" - mottagaren (t.ex. via
+SMS) fick originalbilden, inte den redigerade versionen, trots att
+förhandsvisningen i appen såg helt rätt ut.
+
+**Rotorsak:** `shareURL` (filen `ShareLink` faktiskt delar) är INTE en live
+beräknad egenskap - den är en manuellt underhållen "cache" som bara
+uppdateras när `refreshShareURL()` anropas explicit, på specifika ställen
+(ny bild inläst, bytt exportformat, `restoreOriginal()`, färdig
+bakgrundsbearbetning). `refreshEditPreview()` (som räknar om
+`adjustedPreviewImage` - vad `currentExportImage`/"Dela" FALLER TILLBAKA på
+så länge `processedImage` är `nil`, dvs. ingen riktig bakgrundsborttagning
+körts än) anropade ALDRIG `refreshShareURL()` - så `setPhotoFilter`/
+`setImageAdjustments` (som båda bara kör `refreshEditPreview()`, och
+`removeBackground()` bara VILLKORAT av `if processedImage != nil`)
+uppdaterade den synliga förhandsvisningen korrekt men lämnade `shareURL`
+pekandes på filen från INNAN redigeringen - exakt tills en riktig
+bakgrundsborttagning råkade köras av en annan anledning. Undo/redo-koden
+(`restoreSnapshot`) hade redan (av misstag, av rätt instinkt) upptäckt att
+de två hör ihop och anropade båda explicit efter varandra - bara
+`refreshEditPreview()`s ANDRA anropsställen missade det.
+
+**Fix:** Flyttade `refreshShareURL()`-anropet IN i `refreshEditPreview()`
+själv (efter att `adjustedPreviewImage` satts, i samma `MainActor.run`-block)
+istället för att lita på att varje anropsställe kommer ihåg att göra det
+separat - tog samtidigt bort det nu överflödiga extra anropet i
+`restoreSnapshot`. Se `SearchViewModel.swift`.
+
+**Lärdom:** Samma mönster som `cachedMask`-buggen ("Att ändra motivval en
+andra gång gjorde ingenting" nedan) och Persona/SayFrame-repots
+exportbugg - en manuellt underhållen "cache"/derived-value (`shareURL`,
+`cachedMask`, en WebKit-rasterisering som antas vara klar) måste antingen
+uppdateras vid VARJE ställe den underliggande datan ändras (lätt att missa
+ett), eller - bättre när det går - flyttas in i den DELADE funktionen som
+redan anropas från alla de ställena, så det blir strukturellt omöjligt att
+missa nästa gång ett nytt anropsställe läggs till. Kontrollera alltid ALLA
+anropsställen till en delad "uppdatera förhandsvisning"-funktion när en
+liknande "dela/exportera senaste resultatet"-bugg rapporteras, inte bara
+det mest uppenbara.
+
+## 2026-09-26: Blå text kvarstod på Form/Format trots tidigare "fix"
+
+**Symptom:** Efter förra postens fix (`.foregroundStyle(.primary)` i
+`ToolbarChrome`s `.native`-läge) visade Form och Format FORTFARANDE blå
+text i praktiken, enligt användaren - trots att den posten drog slutsatsen
+att fixen "påverkar båda vägarna (Button via ButtonStyle, Menu via direkt
+`label:`-användning) lika".
+
+**Rotorsak:** Den slutsatsen var ofullständig. `shapeMenu`/`backgroundMenu`
+ÄR `Button`er, men satte aldrig `.buttonStyle(.nativeToolbar)` - de
+skickade istället `ToolbarChrome(tier: .native) { ... }` direkt som sin
+`label:`, vilket lämnar SwiftUIs default `.automatic`-knappstil kvar runt
+den. Den standardstilen läser systemets `.tint`/accentfärg för hur den
+målar SIN EGEN kontroll-krom ovanpå etikettinnehållet - ett
+`.foregroundStyle` satt på INNEHÅLLET i labeln (som `ToolbarChrome` gör)
+påverkar inte det, bara `.tint(_:)`/accentColor satt på SJÄLVA kontrollen
+(Button/Menu) gör. `formatMenu` (ett riktigt `Menu`) har samma problem, av
+samma anledning - och kan dessutom inte ta en `.buttonStyle` alls.
+
+**Fix:** `shapeMenu`/`backgroundMenu` skickar nu bara `Label(...)` som sin
+`label:` och sätter `.buttonStyle(.nativeToolbar)` - EXAKT samma mönster
+som Ångra/Filter/Justera, som aldrig haft det här problemet - istället för
+att manuellt slå in en `ToolbarChrome` i en obestämd default-knappstil.
+`formatMenu` (som måste förbli ett `Menu` för sin nedrullningsbara lista)
+fick istället `.tint(.primary)` satt direkt på `Menu`-vyn (INTE bara i dess
+label-innehåll). Se `DetailPanel.swift`.
+
+**Lärdom:** `.foregroundStyle` satt på en kontrolls (Button/Menu)
+LABEL-INNEHÅLL styr bara den passiva textens/ikonens egen färg - det
+räcker inte för att neutralisera hur en STANDARDSTYLAD kontroll (utan egen
+`ButtonStyle`) målar sin egen interaktiva krom, som istället följer
+`.tint`/accentColor. Kontrollera VILKEN modifier som faktiskt äger färgen
+man vill ändra (innehållets `foregroundStyle` vs. kontrollens egna `tint`)
+innan man antar att en fix räcker bara för att den ser rimlig ut i koden -
+och lita inte på en tidigare logg-posts slutsats om användaren rapporterar
+att felet kvarstår.
+
 ## 2026-09-26: Form/Format-menyerna fick blå text istället för normal
 
 **Symptom:** Efter att `ToolbarChrome(tier: .native)` applicerats på

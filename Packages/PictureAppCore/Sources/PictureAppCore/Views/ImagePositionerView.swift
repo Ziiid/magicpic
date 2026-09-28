@@ -6,6 +6,15 @@ import SwiftUI
 /// `SubjectFramingCanvas`), inte via en dialog. Själva dra/nyp/vrid-
 /// hanteringen sitter i den delade `ManipulableImageView`.
 struct ImagePositionerView: View {
+    // `String`, redan LOKALISERAD av anropsstället (via `L(...)`) - INTE
+    // `LocalizedStringKey`. Provade `LocalizedStringKey` här tidigare i tron
+    // att SwiftUI då skulle slå upp den mot rätt bundle automatiskt, men det
+    // stämmer INTE - `Text(_:LocalizedStringKey)`/`Button(_:LocalizedStringKey:)`
+    // utan uttrycklig `bundle:` letar i `Bundle.main` precis som `String`-
+    // varianten, och `Button` exponerar dessutom ingen `bundle:`-parameter
+    // alls att sätta här. Enda robusta sättet: lös upp texten till en
+    // FÄRDIG `String` VID ANROPSSTÄLLET (`L(...)`) och skicka den vidare -
+    // se `CLAUDE.md`s lokaliseringsavsnitt.
     let title: String
     let subtitle: String
     let image: PlatformImage
@@ -79,7 +88,7 @@ struct ImagePositionerView: View {
             }
 
             HStack {
-                Button("Avbryt", role: .cancel) { onCancel() }
+                Button(L("Avbryt"), role: .cancel) { onCancel() }
                 Spacer()
                 Button(doneLabel) { onDone(transform) }
                     .keyboardShortcut(.defaultAction)

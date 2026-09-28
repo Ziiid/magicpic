@@ -36,7 +36,8 @@ public enum WebSearchEngine: String, CaseIterable, Identifiable {
             // ChatGPT tolkar det som en bildgenereringsförfrågan istället
             // för en vanlig fråga.
             components = URLComponents(string: "https://chatgpt.com/")!
-            components.queryItems = [URLQueryItem(name: "q", value: "Skapa en bild: \(query)")]
+            let prefix = String(localized: "Skapa en bild:", bundle: .module, locale: AppLanguage.current.locale)
+            components.queryItems = [URLQueryItem(name: "q", value: "\(prefix) \(query)")]
         }
         return components.url
     }

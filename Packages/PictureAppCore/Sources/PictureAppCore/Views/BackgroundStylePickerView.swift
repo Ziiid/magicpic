@@ -33,13 +33,20 @@ struct BackgroundStylePickerView: View {
     private struct Option {
         let key: OptionKey
         let style: BackgroundOption
+        // Redan LOKALISERAD `String` (via `L(...)` nedan) - se
+        // `CLAUDE.md`s lokaliseringsavsnitt för varför varken `String`
+        // (aldrig lokaliserad) eller `LocalizedStringKey` (letar bara i
+        // `Bundle.main`, hittar aldrig paketets egen katalog utan en
+        // `bundle:`-parameter `Text` visserligen har men inte alla
+        // anropsställen nödvändigtvis bryr sig om att sätta) är
+        // tillräckligt på egen hand.
         let label: String?
     }
 
     private var options: [Option] {
         var result = [
-            Option(key: .transparent, style: .transparent, label: "Ingen"),
-            Option(key: .blurred, style: .blurredOriginal, label: "Oskärpa"),
+            Option(key: .transparent, style: .transparent, label: L("Ingen")),
+            Option(key: .blurred, style: .blurredOriginal, label: L("Oskärpa")),
         ]
         for color in BackgroundOption.presetColors {
             result.append(Option(key: .color(color), style: .color(color), label: nil))
@@ -49,11 +56,11 @@ struct BackgroundStylePickerView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Bakgrund")
+            Text(L("Bakgrund"))
                 .font(.headline)
 
             if didFailToLoadMask {
-                Text("Kunde inte analysera bilden för förhandsvisning. Prova igen.")
+                Text(L("Kunde inte analysera bilden för förhandsvisning. Prova igen."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -92,7 +99,7 @@ struct BackgroundStylePickerView: View {
                 Button {
                     onPickMoreColors()
                 } label: {
-                    Label("Fler färger…", systemImage: "paintpalette")
+                    Label(L("Fler färger…"), systemImage: "paintpalette")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.nativeToolbar)
@@ -100,7 +107,7 @@ struct BackgroundStylePickerView: View {
                 Button {
                     onPickCustomImage()
                 } label: {
-                    Label("Egen bild…", systemImage: "photo")
+                    Label(L("Egen bild…"), systemImage: "photo")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.nativeToolbar)
@@ -109,7 +116,7 @@ struct BackgroundStylePickerView: View {
                     Button {
                         onRepositionCustomImage()
                     } label: {
-                        Label("Justera position…", systemImage: "arrow.up.and.down.and.arrow.left.and.right")
+                        Label(L("Justera position…"), systemImage: "arrow.up.and.down.and.arrow.left.and.right")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.nativeToolbar)
@@ -118,7 +125,7 @@ struct BackgroundStylePickerView: View {
 
             HStack {
                 Spacer()
-                Button("Klart") { onDone() }
+                Button(L("Klart")) { onDone() }
                     .keyboardShortcut(.defaultAction)
             }
         }

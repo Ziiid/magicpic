@@ -25,7 +25,7 @@
 		6DF5BA2B1832CB4D82FE669D /* PictureAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PictureAppApp.swift; sourceTree = "<group>"; };
 		875AC5104DE47221CB8709D0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		92AE3260FD0EDE7FC022AAA6 /* PictureAppCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PictureAppCore; path = Packages/PictureAppCore; sourceTree = SOURCE_ROOT; };
-		A0035891464E884516D39CDA /* PictureApp-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "PictureApp-macOS.app"; path = PictureApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0035891464E884516D39CDA /* PictureApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PictureApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E3126A16FE9F1A1714972960 /* PictureApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PictureApp.entitlements; sourceTree = "<group>"; };
 		F36BB5CC71998E83CC1227AD /* PictureApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PictureApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -73,7 +73,7 @@
 			isa = PBXGroup;
 			children = (
 				F36BB5CC71998E83CC1227AD /* PictureApp.app */,
-				A0035891464E884516D39CDA /* PictureApp-macOS.app */,
+				A0035891464E884516D39CDA /* PictureApp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -146,7 +146,7 @@
 				E824198A277851CFFF89B0BC /* PictureAppCore */,
 			);
 			productName = "PictureApp-macOS";
-			productReference = A0035891464E884516D39CDA /* PictureApp-macOS.app */;
+			productReference = A0035891464E884516D39CDA /* PictureApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -237,15 +237,16 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 3873522W2D;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
-				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "PictureApp sparar den bearbetade bilden i ditt Foton-bibliotek.";
+				INFOPLIST_KEY_CFBundleDisplayName = XtraPic;
+				INFOPLIST_KEY_CFBundleName = XtraPic;
+				INFOPLIST_KEY_NSCameraUsageDescription = "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XtraPic sparar den bearbetade bilden i ditt Foton-bibliotek.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp;
 				PRODUCT_NAME = PictureApp;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -318,11 +319,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/macOS/PictureApp.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = 3873522W2D;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
+				INFOPLIST_KEY_CFBundleDisplayName = XtraPic;
+				INFOPLIST_KEY_CFBundleName = XtraPic;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
-				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -407,15 +410,16 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = 3873522W2D;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
-				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "PictureApp sparar den bearbetade bilden i ditt Foton-bibliotek.";
+				INFOPLIST_KEY_CFBundleDisplayName = XtraPic;
+				INFOPLIST_KEY_CFBundleName = XtraPic;
+				INFOPLIST_KEY_NSCameraUsageDescription = "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XtraPic sparar den bearbetade bilden i ditt Foton-bibliotek.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp;
 				PRODUCT_NAME = PictureApp;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -428,11 +432,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/macOS/PictureApp.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = 3873522W2D;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = PictureApp;
+				INFOPLIST_KEY_CFBundleDisplayName = XtraPic;
+				INFOPLIST_KEY_CFBundleName = XtraPic;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.graphics-design";
-				INFOPLIST_KEY_NSCameraUsageDescription = "PictureApp behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

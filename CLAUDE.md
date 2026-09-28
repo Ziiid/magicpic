@@ -1,5 +1,20 @@
 # PictureApp (magicpic)
 
+Appens SYNLIGA namn (appikonens text, fönstertitel, behörighetsdialoger) är
+**XtraPic** sedan 2026-09-28 (hette kort "Pixxikon" 2026-09-26 innan dess) -
+bara `INFOPLIST_KEY_CFBundleDisplayName` och användarsynliga strängar
+bytta, på uttrycklig begäran. Projektnamnet, target-namnen och
+mappstrukturen nedan är MEDVETET kvar som "PictureApp"/magicpic - inte
+bytta ännu, inte ett misstag. Fråga användaren innan du byter någon av dem
+också.
+
+Bundle-ID är **`com.tobias.pictureapp` för BÅDA målen** (Mac och iOS) sedan
+2026-09-28 - medvetet ändrat från det tidigare `.ios`-suffixet på
+iOS-målet, så att appen kan ha EN gemensam app-post i App Store Connect
+("one app, multiple platforms") istället för två separata. Ändra INTE
+tillbaka till skilda bundle-ID:n utan att fråga - det stänger av den
+gemensamma app-posten.
+
 En app för att söka efter bilder, ta bort/byta bakgrund med ett klick, och
 spara resultatet. Ett Xcode-projekt med två mål som delar affärslogik:
 
@@ -28,10 +43,112 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen. Se även
   bundle-ID, Info.plist-nycklar osv., inte `.xcodeproj` för hand. Kör
   `xcodegen generate` efter ändringar i `project.yml` eller när nya
   källfiler/mappar läggs till i `App/macOS` eller `App/iOS`.
-- UI-text, felmeddelanden och kodkommentarer skrivs på **svenska**, i linje
-  med resten av appen.
+- UI-text, felmeddelanden och kodkommentarer skrivs på **svenska** i
+  KÄLLKODEN (kodkommentarer alltid, och varje sträng skrivs som sin
+  svenska text - det är NYCKELN i String Catalog, se nedan) - i linje med
+  resten av appen. Detta är oberoende av att appen sedan 2026-09-28 visas
+  på ENGELSKA som standard för slutanvändaren (se "Lokalisering
+  (svenska/engelska)" nedan) - dev-språket och appens default visningsspråk
+  är alltså medvetet olika saker.
 - Signering: `CODE_SIGN_STYLE: Automatic`, inget hårdkodat `DEVELOPMENT_TEAM`.
   Användaren väljer sitt Team i Xcodes Signing & Capabilities-flik.
+
+## Lokalisering (svenska/engelska)
+
+Appen har en egen språkväxel i Inställningar (kugghjulet i sökfältet,
+`SettingsView`/`ContentView.appLanguage`) - HELT oberoende av enhetens
+systemspråk. **Default är ENGELSKA**, inte svenska (uttryckligen begärt
+2026-09-28 - appens namn/filterstilar är redan engelska, och App
+Store-distribution är global).
+
+- **Källan för allt** är EN String Catalog:
+  `Packages/PictureAppCore/Sources/PictureAppCore/Localizable.xcstrings`
+  (`sourceLanguage: sv`, nyckeln ÄR den svenska källtexten). `Package.swift`
+  deklarerar den som en resurs (`resources: [.process("Localizable.xcstrings")]`)
+  och sätter `defaultLocalization: "sv"`.
+- **`AppLanguage`** (`Models/AppLanguage.swift`) är modellen - `.current`
+  läser UserDefaults-nyckeln `"appLanguage"` DIREKT (samma nyckel som
+  `ContentView`s `@AppStorage`) för kod UTAN tillgång till SwiftUI-miljön
+  (modeller/services, t.ex. `PhotoFilter.label`).
+- **EN enda lokaliseringsväg - `L("Svensk text")`** (`Models/Localized.swift`,
+  bara en kort stavning av `String(localized:bundle:.module,locale:
+  AppLanguage.current.locale)`). Detta gäller BOKSTAVLIGEN VARJE
+  användarsynlig sträng, inklusive vanliga `Text(...)`/`Label(...)`/
+  `Button(...)`/`.help(...)`/`Picker(...)`/`Toggle(...)`-anrop i en View -
+  skriv alltså `Text(L("Svensk text"))`, INTE `Text("Svensk text")`.
+  **VIKTIGT, felaktigt antaget första gången (2026-09-28) och korrigerat
+  efter att användaren visade en skärmdump där översättningen tyst
+  uteblev:** SwiftUI slår INTE automatiskt upp en bokstavlig
+  `Text("...")`/`LocalizedStringKey` mot paketets EGNA String Catalog -
+  utan en uttrycklig `bundle:`-parameter letar den bara i `Bundle.main`
+  (app-targetens egen bundle, inte `PictureAppCore`s), och `.environment(
+  \.locale, ...)` löser INTE det problemet (den styr bara VILKET språk
+  som väljs UR en redan hittad bundle, inte VILKEN bundle som söks).
+  `Text` har visserligen en `bundle:`-parameter man kan sätta manuellt,
+  men `Label`/`Button`/`.help`/`Picker`/`Toggle`/`TextField`/`ProgressView`/
+  `ColorPicker`/`confirmationDialog`/`navigationTitle`s enkla
+  bekvämlighets-initierare exponerar OFTA ingen sådan parameter alls - så
+  den enda mönstret som fungerar ÖVERALLT, konsekvent, är att förresolva
+  till en vanlig `String` via `L(...)` VID ANROPSSTÄLLET och skicka den
+  strängen vidare (varje sådan SwiftUI-API har en `String`/`StringProtocol`-
+  baserad överlagring som bara visar texten rakt av, vilket är korrekt när
+  texten redan är lokaliserad).
+- **Samma fälla gäller en `String`-parameter till en ÅTERANVÄNDBAR vy**
+  (t.ex. `ImagePositionerView(title: String, ...)`,
+  `ImageAdjustmentsView.slider(_ title: String, ...)`,
+  `BackgroundStylePickerView.Option.label: String?`) som sedan visas via
+  `Text(title)`/`Label(title, ...)` INUTI vyn - lös INTE detta genom att
+  byta parametertypen till `LocalizedStringKey` (provat och backat 2026-09-28,
+  se ovan - `LocalizedStringKey` har SAMMA `Bundle.main`-problem, och många
+  SwiftUI-API:er saknar en `bundle:`-parameter att sätta på den ändå).
+  Rätt fix: låt parametern förbli `String`, och lös upp texten med
+  `L(...)` VID ANROPSSTÄLLET (t.ex. `ImagePositionerView(title: L("Justera
+  bakgrundsbilden"), ...)` i `DetailPanel.swift`) - vyn själv visar sedan
+  bara den redan färdiga strängen.
+- En ternary DIREKT inuti `Text(...)`/`.help(...)` (t.ex.
+  `Text(a ? "X" : "Y")`) tvingar Swift att slå ihop båda grenarna till EN
+  gemensam typ INNAN `Text`s överlagringar väljs - skriv om som `if/else`
+  med var sin `Text(L("..."))`, eller lös upp båda grenarna explicit med
+  `L(...)`/tomsträng före modifiern (se `SubjectPickerView`s `.help(...)`).
+- En sträng med INTERPOLERAD data (t.ex. `\(error.localizedDescription)`
+  eller `\(selected.count)`) kan INTE vara nyckeln direkt i en
+  `String(localized:)`/`L(...)`-anrop om datan varierar per anrop (då
+  matchar den aldrig en fast katalogpost) - UNDANTAGET är räkne-
+  interpolationer (`Int`, via `LocalizedStringKey`/`String.LocalizationValue`s
+  egen interpolationshantering, extraherad som `%lld`-platshållare i
+  katalogen, se `SubjectPickerView`s "X av Y motiv valda") - de fungerar
+  fint eftersom "plats + antal" är EN stabil mening. För fri text (ett
+  felmeddelande, ett filternamn) - dela istället upp i en FAST, lokaliserad
+  prefix-sträng + rådata konkatenerad EFTER lokaliseringen (se
+  `SearchViewModel`s felmeddelanden och `PhotoFilterService.runFilter`).
+- **Servicefelen** (`RemovalError`/`FilterError`/`ShapeError`/`AdjustmentError`,
+  alla `{ let message: String }`) lokaliseras CENTRALT i respektive
+  `errorDescription` via `String(localized: String.LocalizationValue(message), ...)`
+  - en runtime-nyckel, INTE en bokstavlig sträng - så inget enskilt
+    `throw ...(message: "...")`-ställe (över 40 stycken) behövde skrivas om
+    för hand. Undantag: meddelanden som redan innehåller INTERPOLERAD data
+    (t.ex. ett filternamn) kan inte matcha en fast katalogpost - dela då upp
+    i en lokaliserad, FAST prefix-sträng + rådata konkatenerad EFTER
+    lokaliseringen (se `PhotoFilterService.runFilter`).
+- **App-target-undantag**: `App/macOS/MacImageExporter.swift`/
+  `App/iOS/IOSImageExporter.swift` ligger i ANDRA moduler än
+  `PictureAppCore`, så `bundle: .module` där skulle peka fel katalog. Deras
+  få felmeddelanden hämtas istället från `Support/ExporterMessages.swift`
+  (delad, `PictureAppCore`-lokaliserad).
+- **Uttryckligt UNDANTAG, INTE i scope**: `NSCameraUsageDescription`,
+  `NSPhotoLibraryAddUsageDescription` och `CFBundleDisplayName` i
+  `project.yml` visas av OS:ET (behörighetsdialoger, appnamnet på
+  Hemskärmen/Dock) INNAN appens egen UI ens körs, och följer ENHETENS
+  systemspråk - INTE vår egen in-app-växel. De förblir alltid svenska/
+  "XtraPic" oavsett vad `AppLanguage` är satt till, om inte en riktig
+  Info.plist-lokalisering (ett separat, mindre projekt) läggs till senare.
+- Ett par väldigt sällsynta, aldrig-observerade felvägar (bl.a.
+  `"Kunde inte skapa filtret \(name)."` om ett hårdkodat CIFilter-namn
+  skulle sluta finnas - se `CLAUDE.md`s regel om att alltid verifiera
+  CIFilter-namn) och den interpolerade "X av Y motiv valda"-texten i
+  `SubjectPickerView` byggdes/verifierades utan möjlighet att köra Xcodes
+  egen extraktion - flaggade som extra värda att dubbelkolla vid första
+  riktiga testet av engelskt läge.
 
 ## Arkitektur för plattformsdelning
 
@@ -168,23 +285,29 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen. Se även
   vitt) att lägga OVANPÅ `accent`. Hitta INTE på en ny ton om en annan
   session/uppgift vill ändra något visuellt - fråga användaren istället
   om det verkligen är tänkt att avvika från den etablerade paletten.
-  Den faktiska app-ikonen (`AppLogo.imageset/logo.png`) har en mycket
-  ljusare, mer neon-lime grön (`#cdfc3a`) - det är IKONENS egen färg, inte
-  samma sak som UI-accentfärgen ovan (för mörk kontrast med vit text för
-  att fungera som knappfyllning) - blanda inte ihop dem.
+  Den faktiska app-ikonen (`AppIcon.appiconset`/`AppLogo.imageset`) bytt
+  2026-09-28 till en ny logga - ett glansigt 3D-"X" (blått→lila på ena
+  diagonalen, orange→gult på den andra) med en vit bildram-ikon (berg + sol)
+  ovanpå, som matchar appnamnet XtraPic. INTE grön - ett MEDVETET avsteg
+  från syskonapparnas gröna ikonfärg (den gamla ikonen var ändå en egen,
+  ljusare neon-lime `#cdfc3a`, så appens ikon har ALDRIG delat exakt samma
+  ton som UI-accentfärgen ovan) - användarens eget val av ny logga, inte
+  något en session hittade på. UI-accentfärgen (`AppTheme.accent`,
+  salvia-grönt) är OFÖRÄNDRAD och används fortfarande i hela appen som
+  förut - bara själva ikonen/loggan är blå/lila/orange nu.
 - **Verktygsradens knappar följer ett "80/20"-designspråk** (`ToolbarChrome`
   i `PictureAppCore/Support/`): de flesta kontrollerna är diskreta,
-  konturerade `.nativeToolbar`-knappar, men EXAKT TVÅ kontroller - Bakgrund
-  och Exportera (Spara+Dela) - får en rundad pill i accentfärgen
-  (`ToolbarChrome(tier: .hero)`). Regeln för VILKA som är hero är appens
-  egen enderadsbeskrivning högst upp i den här filen - "ta bort/byta
-  bakgrund... och spara resultatet" ÄR kärnlöftet, allt annat (Form,
-  Filter, Justera, Motiv, Finjustera/pensel) är stödjande verktyg INOM det
-  löftet, inte löftet i sig, och ska förbli native oavsett hur ofta de
-  används. Utöka INTE hero-listan utan att den nya kontrollen faktiskt
-  uppfyller den regeln - se `buggs.md` 2026-09-26 för hur en tidigare,
-  löst motiverad hero-lista (tre kontroller) fick skäras ner till två
-  efter granskning.
+  konturerade `.nativeToolbar`-knappar, men EXAKT EN kontroll - Exportera
+  (Spara+Dela, `exportCluster` i `DetailPanel.swift`) - får en rundad pill i
+  accentfärgen (`ToolbarChrome(tier: .hero)`). Bakgrund var tidigare också
+  hero (motiverat med appens enderadsbeskrivning - "ta bort/byta
+  bakgrund... och spara resultatet") men flyttades till native 2026-09-26
+  på uttrycklig begäran - användaren vill BARA ha Spara/Dela gröna, allt
+  annat (Bakgrund, Form, Filter, Justera, Motiv, Finjustera/pensel) ska se
+  ut precis som Filter/Justera. Utöka INTE hero-listan till mer än
+  Exportera utan att uttryckligen fråga användaren först - se `buggs.md`
+  2026-09-26 för hur listan redan krympt två gånger (tre → två → en) efter
+  granskning/begäran.
 - Webbsökning: appen anropar INGEN bildsöks-API längre (Unsplash togs
   bort 2026-09-25). Istället öppnas en riktig webbkälla
   (`WebSearchEngine`: Google/Pinterest för att SÖKA, ChatGPT - via

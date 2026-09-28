@@ -8,7 +8,7 @@ import PictureAppCore
 struct MacImageExporter: ImageExporter {
     enum ExportError: LocalizedError {
         case noData
-        var errorDescription: String? { "Kunde inte skapa bilddata." }
+        var errorDescription: String? { ExporterMessages.couldNotCreateImageData }
     }
 
     func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws {

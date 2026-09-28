@@ -1,4 +1,5 @@
 import CoreImage
+import Foundation
 
 /// Tillämpar `ImageAdjustments` (ljusstyrka/kontrast/mättnad/temperatur/
 /// highlights/shadows/skärpa/brusreducering/vinjett) på en bild, ren
@@ -11,7 +12,10 @@ import CoreImage
 public struct ImageAdjustmentService {
     public struct AdjustmentError: LocalizedError {
         let message: String
-        public var errorDescription: String? { message }
+        // Se `BackgroundRemovalService.RemovalError`s motsvarande kommentar.
+        public var errorDescription: String? {
+            String(localized: String.LocalizationValue(message), bundle: .module, locale: AppLanguage.current.locale)
+        }
     }
 
     public init() {}

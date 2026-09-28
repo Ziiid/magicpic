@@ -41,7 +41,18 @@ public enum AppTheme {
     /// implicit mellan varandra i Swift) - därav de uttryckliga `CGFloat(...)`.
     public static let accentCGColor = CGColor(red: CGFloat(accentRed), green: CGFloat(accentGreen), blue: CGFloat(accentBlue), alpha: 1)
 
+    private static let onAccentRed = Double(0xfa) / 255.0
+    private static let onAccentGreen = Double(0xf9) / 255.0
+    private static let onAccentBlue = Double(0xf7) / 255.0
+
     /// Off-white (samma varma ton som systerapparnas `#faf9f7`, inte rent
     /// vitt) - text/ikonfärg OVANPÅ `accent` (hero-knapparnas fyllning).
-    public static let onAccent = Color(red: Double(0xfa) / 255.0, green: Double(0xf9) / 255.0, blue: Double(0xf7) / 255.0)
+    public static let onAccent = Color(red: onAccentRed, green: onAccentGreen, blue: onAccentBlue)
+
+    /// Samma varma off-white som `onAccent`, som `CGColor` - för Polaroid-/
+    /// fotoautomat-ramarna i `PhotoFilterService` (ren CoreImage-komposition,
+    /// jobbar med `CGColor`/`CIColor`, inte SwiftUI `Color`). Återanvänder
+    /// den redan etablerade tonen istället för att hitta på en ny vit/
+    /// off-white nyans bara för ramarna.
+    public static let onAccentCGColor = CGColor(red: CGFloat(onAccentRed), green: CGFloat(onAccentGreen), blue: CGFloat(onAccentBlue), alpha: 1)
 }

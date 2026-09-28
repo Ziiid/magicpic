@@ -10,6 +10,13 @@ public struct ContentView: View {
     @State private var showPhotosPicker = false
     @State private var photosPickerItem: PhotosPickerItem?
     @State private var showCamera = false
+    @State private var showSettings = false
+    // Appens EGET mörkt/ljust-läge, oberoende av systemets - `nil`-läget
+    // ("följ systemet") finns medvetet INTE med; användaren bad om EN
+    // switch (på/av), inte en tredelad väljare.
+    @AppStorage("useDarkMode") private var useDarkMode = false
+    // Default ENGELSKA - se `AppLanguage`s dokumentation för varför.
+    @AppStorage("appLanguage") private var appLanguage: AppLanguage = .english
 
     public init(exporter: ImageExporter) {
         _viewModel = StateObject(wrappedValue: SearchViewModel(exporter: exporter))
@@ -17,11 +24,13 @@ public struct ContentView: View {
 
     public var body: some View {
         platformLayout
-            .confirmationDialog("Välj bildkälla", isPresented: $showImageSourceDialog, titleVisibility: .visible) {
-                Button("Från Foton") { showPhotosPicker = true }
-                Button("Ta en bild") { showCamera = true }
-                Button("Klistra in bild") { viewModel.pasteFromClipboard() }
-                Button("Avbryt", role: .cancel) {}
+            .preferredColorScheme(useDarkMode ? .dark : .light)
+            .environment(\.locale, appLanguage.locale)
+            .confirmationDialog(L("Välj bildkälla"), isPresented: $showImageSourceDialog, titleVisibility: .visible) {
+                Button(L("Från Foton")) { showPhotosPicker = true }
+                Button(L("Ta en bild")) { showCamera = true }
+                Button(L("Klistra in bild")) { viewModel.pasteFromClipboard() }
+                Button(L("Avbryt"), role: .cancel) {}
             }
             .photosPicker(isPresented: $showPhotosPicker, selection: $photosPickerItem, matching: .images)
             .onChange(of: photosPickerItem) { _, newItem in
@@ -34,7 +43,7 @@ public struct ContentView: View {
             .sheet(isPresented: $showCamera) {
                 CameraCaptureView(
                     onCapture: { image in
-                        viewModel.loadImportedImage(image, name: "Kamera")
+                        viewModel.loadImportedImage(image, name: String(localized: "Kamera", bundle: .module, locale: AppLanguage.current.locale))
                         showCamera = false
                     },
                     onCancel: { showCamera = false }
@@ -66,7 +75,7 @@ public struct ContentView: View {
             }
             .navigationDestination(item: $viewModel.selectedItem) { _ in
                 DetailPanel(viewModel: viewModel)
-                    .navigationTitle("Förhandsvisning")
+                    .navigationTitle(L("Förhandsvisning"))
                     .navigationBarTitleDisplayMode(.inline)
             }
         }
@@ -74,15 +83,17 @@ public struct ContentView: View {
     }
 
     private func loadPickedPhoto(_ item: PhotosPickerItem) async {
+        let locale = AppLanguage.current.locale
         do {
             guard let data = try await item.loadTransferable(type: Data.self),
                   let image = PlatformImage.normalizedOrientation(from: data) else {
-                viewModel.errorMessage = "Kunde inte läsa den valda bilden."
+                viewModel.errorMessage = String(localized: "Kunde inte läsa den valda bilden.", bundle: .module, locale: locale)
                 return
             }
-            viewModel.loadImportedImage(image, name: "Foto")
+            viewModel.loadImportedImage(image, name: String(localized: "Foto", bundle: .module, locale: locale))
         } catch {
-            viewModel.errorMessage = "Kunde inte läsa den valda bilden: \(error.localizedDescription)"
+            let prefix = String(localized: "Kunde inte läsa den valda bilden:", bundle: .module, locale: locale)
+            viewModel.errorMessage = "\(prefix) \(error.localizedDescription)"
         }
     }
 
@@ -90,7 +101,7 @@ public struct ContentView: View {
         HStack {
             Picker("", selection: $viewModel.sourceKind) {
                 ForEach(ImageSourceKind.allCases) { kind in
-                    Text(kind.rawValue).tag(kind)
+                    Text(kind.label).tag(kind)
                 }
             }
             .pickerStyle(.segmented)
@@ -98,11 +109,11 @@ public struct ContentView: View {
             .labelsHidden()
 
             if viewModel.sourceKind == .web {
-                TextField("Sök eller beskriv en bild…", text: $viewModel.query)
+                TextField(L("Sök eller beskriv en bild…"), text: $viewModel.query)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { openWebSearch() }
 
-                Picker("Källa", selection: $viewModel.searchEngine) {
+                Picker(L("Källa"), selection: $viewModel.searchEngine) {
                     ForEach(WebSearchEngine.allCases) { engine in
                         Text(engine.rawValue).tag(engine)
                     }
@@ -119,19 +130,36 @@ public struct ContentView: View {
             } else {
                 Spacer()
             }
+
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .foregroundStyle(.primary)
+            }
+            // `.buttonStyle(.plain)` uttryckligen - annars bleds systemets
+            // accentfärg (blå) igenom trots `.foregroundStyle(.primary)` på
+            // ikonen, samma bugg som Form/Format-knapparna hade (se
+            // buggs.md 2026-09-26, "Blå text kvarstod på Form/Format").
+            .buttonStyle(.plain)
+            .help(L("Inställningar"))
         }
         .padding(12)
+        .sheet(isPresented: $showSettings) {
+            SettingsView(useDarkMode: $useDarkMode, appLanguage: $appLanguage)
+        }
     }
 
     /// Tooltip på sök-knappen - skiljer sig per källa eftersom ChatGPT
     /// inte stödjer drag (se `webSearchPlaceholder`/`buggs.md`), till
     /// skillnad från Google/Pinterest.
     private var webSearchHelpText: String {
+        let locale = AppLanguage.current.locale
         switch viewModel.searchEngine {
         case .chatGPT:
-            return "Öppnar ChatGPT i webbläsaren - kräver att du är inloggad. Kopiera bilden där och klistra in den i appen (drag stöds inte)."
+            return String(localized: "Öppnar ChatGPT i webbläsaren - kräver att du är inloggad. Kopiera bilden där och klistra in den i appen (drag stöds inte).", bundle: .module, locale: locale)
         case .google, .pinterest:
-            return "Öppnar i webbläsaren - dra sedan in bilden du hittar i appen."
+            return String(localized: "Öppnar i webbläsaren - dra sedan in bilden du hittar i appen.", bundle: .module, locale: locale)
         }
     }
 
@@ -184,14 +212,14 @@ public struct ContentView: View {
             Image(systemName: "photo.badge.plus")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
-            Text("Välj en bild från Foton, ta en ny med kameran, eller dra in en bildfil.")
+            Text(L("Välj en bild från Foton, ta en ny med kameran, eller dra in en bildfil."))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button {
                 showImageSourceDialog = true
             } label: {
-                Label("Välj bild…", systemImage: "photo.badge.plus")
+                Label(L("Välj bild…"), systemImage: "photo.badge.plus")
             }
             .buttonStyle(.borderedProminent)
         }
@@ -217,12 +245,12 @@ public struct ContentView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
 
-                Text("PictureApp")
+                Text("XtraPic")
                     .font(.title2.weight(.semibold))
 
                 if viewModel.searchEngine == .chatGPT {
                     VStack(spacing: 6) {
-                        Text("Skriv en bildbeskrivning ovan och tryck på förstoringsglaset - ChatGPT öppnas i webbläsaren. Kräver att du är inloggad. Sidan stödjer tyvärr inte drag för bilder - högerklicka bilden, välj \"Kopiera bild\", och klistra in den nedan.")
+                        Text(L("Skriv en bildbeskrivning ovan och tryck på förstoringsglaset - ChatGPT öppnas i webbläsaren. Kräver att du är inloggad. Sidan stödjer tyvärr inte drag för bilder - högerklicka bilden, välj \"Kopiera bild\", och klistra in den nedan."))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
@@ -230,13 +258,13 @@ public struct ContentView: View {
                         Button {
                             viewModel.pasteFromClipboard()
                         } label: {
-                            Label("Klistra in bild", systemImage: "doc.on.clipboard")
+                            Label(L("Klistra in bild"), systemImage: "doc.on.clipboard")
                         }
                         .buttonStyle(.borderedProminent)
                         .keyboardShortcut("v", modifiers: .command)
                     }
                 } else {
-                    Text("Skriv en sökning ovan, välj Google eller Pinterest och tryck på förstoringsglaset - det öppnas i webbläsaren. Dra in bilden du hittar direkt hit.")
+                    Text(L("Skriv en sökning ovan, välj Google eller Pinterest och tryck på förstoringsglaset - det öppnas i webbläsaren. Dra in bilden du hittar direkt hit."))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
@@ -266,14 +294,14 @@ public struct ContentView: View {
             Image(systemName: "doc.on.clipboard")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
-            Text("Klistra in en bild från urklipp - t.ex. en skärmbild, eller en bild du kopierat från en app eller webbsida.")
+            Text(L("Klistra in en bild från urklipp - t.ex. en skärmbild, eller en bild du kopierat från en app eller webbsida."))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button {
                 viewModel.pasteFromClipboard()
             } label: {
-                Label("Klistra in bild", systemImage: "doc.on.clipboard")
+                Label(L("Klistra in bild"), systemImage: "doc.on.clipboard")
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut("v", modifiers: .command)
@@ -326,7 +354,7 @@ public struct ContentView: View {
             // `_ObjectiveCBridgeable`-fel.
             _ = provider.loadObject(ofClass: PlatformImage.self as NSItemProviderReading.Type) { reading, _ in
                 guard let image = reading as? PlatformImage, claim.tryClaim() else { return }
-                Task { @MainActor in viewModel.loadImportedImage(image.normalizedOrientation(), name: "Importerad bild") }
+                Task { @MainActor in viewModel.loadImportedImage(image.normalizedOrientation(), name: String(localized: "Importerad bild", bundle: .module, locale: AppLanguage.current.locale)) }
             }
         }
 
@@ -338,7 +366,7 @@ public struct ContentView: View {
             // `canLoadObject`-vägen ovan.
             provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
                 guard let data, let decoded = PlatformImage(data: data), claim.tryClaim() else { return }
-                Task { @MainActor in viewModel.loadImportedImage(decoded.normalizedOrientation(), name: "Importerad bild") }
+                Task { @MainActor in viewModel.loadImportedImage(decoded.normalizedOrientation(), name: String(localized: "Importerad bild", bundle: .module, locale: AppLanguage.current.locale)) }
             }
         }
 
@@ -372,7 +400,11 @@ public struct ContentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             Task { @MainActor in
                 guard !claim.isClaimed else { return }
-                viewModel.errorMessage = "Den här bilden går inte att dra in direkt - webbsidan levererar bilddata på ett sätt appen inte kan läsa. Högerklicka bilden i webbläsaren, välj \"Kopiera bild\", och använd fliken \"Urklipp\" istället."
+                viewModel.errorMessage = String(
+                    localized: "Den här bilden går inte att dra in direkt - webbsidan levererar bilddata på ett sätt appen inte kan läsa. Högerklicka bilden i webbläsaren, välj \"Kopiera bild\", och använd fliken \"Urklipp\" istället.",
+                    bundle: .module,
+                    locale: AppLanguage.current.locale
+                )
                 #if DEBUG
                 print("[handleDrop] Kunde inte tolka draget. Annonserade typer: \(registeredTypes)")
                 #endif

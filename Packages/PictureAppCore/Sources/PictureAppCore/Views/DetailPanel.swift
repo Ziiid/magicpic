@@ -14,15 +14,36 @@ struct DetailPanel: View {
         VStack(spacing: 12) {
             ScrollView {
                 if viewModel.isLoadingDetail {
-                    ProgressView("Laddar bild…")
+                    ProgressView(L("Laddar bild…"))
                         .padding(40)
+                } else if viewModel.photoFilter.isLayoutStyle, viewModel.compositedImage == nil,
+                          let preview = viewModel.adjustedPreviewImage {
+                    // Polaroid/Fotoautomat FÖRE bakgrundsborttagning körts -
+                    // `adjustedPreviewImage` är då redan HELA den inramade/
+                    // staplade bilden (se `PhotoFilterService.apply`), inte
+                    // bara motivet - visa den oklippt i sitt EGNA
+                    // bildförhållande istället för att tvinga in den i den
+                    // kvadrat-/formklippande `SubjectFramingCanvas` nedan
+                    // (en hög, smal fotoautomat-remsa blev annars beskuren
+                    // till bara mitten av remsan, rapporterat 2026-09-26).
+                    // Ingen drag-/nyp-ramning här - det finns inget att
+                    // positionera, ramen/remsan ÄR redan slutresultatet.
+                    Image(platformImage: preview)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .padding()
                 } else if let original = viewModel.originalImage {
                     // Alltid den inbäddade, dra-/nyp-/vridbara ramningsytan -
                     // inget separat "justera position"-läge att växla till.
                     // Källan är den bakgrundskompositerade bilden när den
                     // finns (så vald bakgrund syns medan man justerar,
                     // istället för att se ut som att bakgrunden "kommer
-                    // tillbaka"), annars det obehandlade originalet.
+                    // tillbaka"), annars det obehandlade originalet. OBS:
+                    // `compositedImage` är ALDRIG den Polaroid-/fotoautomat-
+                    // inramade bilden (se `SearchViewModel.applyPipeline`s
+                    // dokumentation) - bara motivet, bakgrundsbytt men INTE
+                    // ännu formbeskuret/inramat - så den passar fint här även
+                    // när en lager-stil är vald.
                     VStack(spacing: 8) {
                         SubjectFramingCanvas(
                             image: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
@@ -33,12 +54,12 @@ struct DetailPanel: View {
                         )
                         .padding()
 
-                        Text("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera.")
+                        Text(L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text("Kunde inte ladda bilden.")
+                    Text(L("Kunde inte ladda bilden."))
                         .foregroundStyle(.secondary)
                         .padding(40)
                 }
@@ -55,7 +76,7 @@ struct DetailPanel: View {
             if viewModel.isProcessing {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
-                    Text("Bearbetar…")
+                    Text(L("Bearbetar…"))
                 }
                 .foregroundStyle(.secondary)
                 .font(.caption)
@@ -80,29 +101,29 @@ struct DetailPanel: View {
                     Button {
                         viewModel.undo()
                     } label: {
-                        Label("Ångra", systemImage: "arrow.uturn.backward")
+                        Label(L("Ångra"), systemImage: "arrow.uturn.backward")
                     }
                     .buttonStyle(.nativeToolbar)
                     .disabled(!viewModel.canUndo)
-                    .help("Ångra senaste ändringen.")
+                    .help(L("Ångra senaste ändringen."))
 
                     Button {
                         viewModel.redo()
                     } label: {
-                        Label("Gör om", systemImage: "arrow.uturn.forward")
+                        Label(L("Gör om"), systemImage: "arrow.uturn.forward")
                     }
                     .buttonStyle(.nativeToolbar)
                     .disabled(!viewModel.canRedo)
-                    .help("Gör om den senast ångrade ändringen.")
+                    .help(L("Gör om den senast ångrade ändringen."))
 
                     Button {
                         viewModel.restoreOriginal()
                     } label: {
-                        Label("Återställ till original", systemImage: "arrow.counterclockwise")
+                        Label(L("Återställ till original"), systemImage: "arrow.counterclockwise")
                     }
                     .buttonStyle(.nativeToolbar)
                     .disabled(!hasChanges)
-                    .help("Kasta bakgrunds-/form-/positioneringsval och gå tillbaka till originalbilden.")
+                    .help(L("Kasta bakgrunds-/form-/positioneringsval och gå tillbaka till originalbilden."))
                 }
 
                 // Rad 2: Redigeringsverktyg. Ingen egen "Ta bort bakgrund"-
@@ -117,29 +138,29 @@ struct DetailPanel: View {
                     Button {
                         showPhotoFilters = true
                     } label: {
-                        Label("Filter", systemImage: "camera.filters")
+                        Label(L("Filter"), systemImage: "camera.filters")
                     }
                     .buttonStyle(.nativeToolbar)
                     .disabled(viewModel.originalImage == nil)
-                    .help("Färdiga bildstilar - svartvitt, sepia, röntgen, m.fl.")
+                    .help(L("Färdiga bildstilar - svartvitt, sepia, röntgen, m.fl."))
 
                     Button {
                         showAdjustments = true
                     } label: {
-                        Label("Justera", systemImage: "slider.horizontal.3")
+                        Label(L("Justera"), systemImage: "slider.horizontal.3")
                     }
                     .buttonStyle(.nativeToolbar)
                     .disabled(viewModel.originalImage == nil)
-                    .help("Ljusstyrka, kontrast, mättnad, skärpa, temperatur, highlights/shadows, brusreducering, vinjett.")
+                    .help(L("Ljusstyrka, kontrast, mättnad, skärpa, temperatur, highlights/shadows, brusreducering, vinjett."))
 
                     if viewModel.hasMultipleSubjects {
                         Button {
                             viewModel.reopenSubjectPicker()
                         } label: {
-                            Label("Motiv…", systemImage: "checkmark.circle")
+                            Label(L("Motiv…"), systemImage: "checkmark.circle")
                         }
                         .buttonStyle(.nativeToolbar)
-                        .help("Välj om vilket eller vilka motiv som ska behållas.")
+                        .help(L("Välj om vilket eller vilka motiv som ska behållas."))
                     }
 
                     // Native, INTE hero - penseln KORRIGERAR vad Vision
@@ -149,11 +170,11 @@ struct DetailPanel: View {
                     Button {
                         viewModel.beginMaskEditing()
                     } label: {
-                        Label("Finjustera", systemImage: "paintbrush")
+                        Label(L("Finjustera"), systemImage: "paintbrush")
                     }
                     .buttonStyle(.nativeToolbar)
                     .disabled(viewModel.processedImage == nil)
-                    .help("Måla för hand för att lägga till eller ta bort delar av urklippet.")
+                    .help(L("Måla för hand för att lägga till eller ta bort delar av urklippet."))
                 }
 
                 // Rad 3: Utdata.
@@ -195,12 +216,12 @@ struct DetailPanel: View {
         }
         .sheet(item: $viewModel.backgroundPositioningRequest) { request in
             ImagePositionerView(
-                title: "Justera bakgrundsbilden",
-                subtitle: "Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera.",
+                title: L("Justera bakgrundsbilden"),
+                subtitle: L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."),
                 image: request.image,
                 previewAspectRatio: previewAspectRatio,
                 clipShape: AnyShape(Rectangle()),
-                doneLabel: "Använd bakgrund",
+                doneLabel: L("Använd bakgrund"),
                 initialTransform: request.initialTransform,
                 onDone: { transform in viewModel.confirmCustomBackground(image: request.image, transform: transform) },
                 onCancel: { viewModel.cancelCustomBackgroundPositioning() }
@@ -283,11 +304,11 @@ struct DetailPanel: View {
         // 2026-09-26).
         .sheet(isPresented: $showColorPicker) {
             VStack(spacing: 20) {
-                Text("Fler färger")
+                Text(L("Fler färger"))
                     .font(.headline)
 
                 ColorPicker(
-                    "Bakgrundsfärg",
+                    L("Bakgrundsfärg"),
                     selection: Binding(
                         get: {
                             if case .color(let color) = viewModel.backgroundStyle { return color }
@@ -300,7 +321,7 @@ struct DetailPanel: View {
 
                 HStack {
                     Spacer()
-                    Button("Klart") { showColorPicker = false }
+                    Button(L("Klart")) { showColorPicker = false }
                         .keyboardShortcut(.defaultAction)
                 }
             }
@@ -331,33 +352,24 @@ struct DetailPanel: View {
         return false
     }
 
-    // Hero (20%) - EN av bara TVÅ hero-kontroller i hela appen, tillsammans
-    // med export-klustret (`exportCluster`). Principen (skärpt 2026-09-26
-    // efter att den ursprungliga listan - Bakgrund+Finjustera+Export - visade
-    // sig sakna en riktig motivering): appens egen enderadsbeskrivning i
-    // `CLAUDE.md` säger vad kärnlöftet ÄR - "ta bort/byta bakgrund... och
-    // spara resultatet" - så BARA de två stegen (byta bakgrund, få ut
-    // resultatet) får hero-behandling. Form/Filter/Justera/Motiv/Finjustera
-    // är alla stödjande FINJUSTERINGAR inom det flödet, inte löftet i sig,
-    // och förblir därför native oavsett hur "viktiga" de känns i
-    // användningen.
+    // Native, INTE hero - ändrat 2026-09-26 på uttrycklig begäran (användaren
+    // ville BARA ha Spara/Dela gröna, allt annat inklusive Bakgrund ska se
+    // ut som Filter/Justera). Den tidigare motiveringen (Bakgrund ansågs
+    // vara hälften av appens kärnlöfte, "ta bort/byta bakgrund... och spara
+    // resultatet") är alltså överspelad - se `CLAUDE.md`s "Verktygsradens
+    // knappar"-avsnitt för den uppdaterade regeln. `exportCluster` är nu den
+    // ENDA hero-kontrollen i appen.
     //
     // Öppnar `BackgroundStylePickerView` (riktiga förhandsgranskningar,
     // rapporterat 2026-09-26 att Bakgrund/Form saknade det Filter redan
-    // hade) istället för en textmeny. Fortfarande hero-stil på själva
-    // utlösarknappen - bara INTERAKTIONEN (sheet med rutnät, som Filter)
-    // ändras, inte hur knappen ser ut.
+    // hade) istället för en textmeny.
     private var backgroundMenu: some View {
         Button {
             showBackgroundStylePicker = true
         } label: {
-            ToolbarChrome(tier: .hero) {
-                HStack(spacing: 6) {
-                    Image(systemName: "photo.fill")
-                    Text("Bakgrund")
-                }
-            }
+            Label(L("Bakgrund"), systemImage: "photo.fill")
         }
+        .buttonStyle(.nativeToolbar)
         .disabled(viewModel.originalImage == nil)
     }
 
@@ -372,7 +384,7 @@ struct DetailPanel: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.down.fill")
-                    Text("Spara")
+                    Text(L("Spara"))
                 }
                 .padding(.horizontal, 13)
                 .padding(.vertical, 7)
@@ -388,7 +400,7 @@ struct DetailPanel: View {
                 ShareLink(item: shareURL) {
                     HStack(spacing: 6) {
                         Image(systemName: "square.and.arrow.up.fill")
-                        Text("Dela")
+                        Text(L("Dela"))
                     }
                     .padding(.horizontal, 13)
                     .padding(.vertical, 7)
@@ -397,7 +409,7 @@ struct DetailPanel: View {
             } else {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.up.fill")
-                    Text("Dela")
+                    Text(L("Dela"))
                 }
                 .padding(.horizontal, 13)
                 .padding(.vertical, 7)
@@ -411,21 +423,28 @@ struct DetailPanel: View {
     }
 
     // Öppnar `ShapePickerView` (riktiga förhandsgranskningar) istället för
-    // en textmeny - samma anledning som `backgroundMenu` ovan.
+    // en textmeny - samma anledning som `backgroundMenu` ovan. Skickar bara
+    // `Label` som `label:` och sätter `.buttonStyle(.nativeToolbar)` - EXAKT
+    // samma mönster som Ångra/Filter/Justera - istället för att manuellt
+    // slå in en `ToolbarChrome` (se buggs.md 2026-09-26, "Blå text kvarstod
+    // på Form/Format" för varför den skillnaden faktiskt spelar roll).
     private var shapeMenu: some View {
         Button {
             showShapePicker = true
         } label: {
-            ToolbarChrome(tier: .native) {
-                Label("Form", systemImage: "square.on.circle")
-            }
+            Label(L("Form"), systemImage: "square.on.circle")
         }
+        .buttonStyle(.nativeToolbar)
         .disabled(viewModel.originalImage == nil)
     }
 
     /// Filformat för "Spara"/"Dela" (PNG med genomskinlighet, eller JPEG för
     /// mindre filstorlek) - påverkar båda knapparna direkt, precis som
-    /// bakgrunds-/formvalen ovan.
+    /// bakgrunds-/formvalen ovan. Måste förbli ett riktigt `Menu` (den
+    /// nedrullningsbara listan går inte att bygga med `.buttonStyle`), så
+    /// `.tint(.primary)` sätts uttryckligen på SJÄLVA `Menu`-vyn (inte bara i
+    /// dess `label:`-innehåll) för att neutralisera systemets accentfärg på
+    /// kontrollens egen krom - se buggs.md 2026-09-26.
     private var formatMenu: some View {
         Menu {
             ForEach(ImageExportFormat.allCases) { format in
@@ -437,9 +456,10 @@ struct DetailPanel: View {
             }
         } label: {
             ToolbarChrome(tier: .native) {
-                Label("Format", systemImage: "gearshape")
+                Label(L("Format"), systemImage: "gearshape")
             }
         }
+        .tint(.primary)
         .disabled(viewModel.originalImage == nil)
     }
 }

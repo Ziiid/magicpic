@@ -1,5 +1,6 @@
 import CoreGraphics
 import CoreImage
+import Foundation
 
 /// Beskär och maskerar den redan färdigt kompositerade bilden (motiv +
 /// bakgrund) till en vald form. Körs som ett sista steg EFTER
@@ -8,7 +9,10 @@ import CoreImage
 public struct ShapeCropService {
     public struct ShapeError: LocalizedError {
         let message: String
-        public var errorDescription: String? { message }
+        // Se `BackgroundRemovalService.RemovalError`s motsvarande kommentar.
+        public var errorDescription: String? {
+            String(localized: String.LocalizationValue(message), bundle: .module, locale: AppLanguage.current.locale)
+        }
     }
 
     public init() {}

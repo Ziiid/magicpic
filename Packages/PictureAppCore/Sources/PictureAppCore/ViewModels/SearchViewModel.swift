@@ -268,6 +268,19 @@ public final class SearchViewModel: ObservableObject {
     /// långsamma väg (nyss beräknad/ihopslagen mask). Körs alltid frikopplad
     /// från huvudtråden (`Task.detached`) eftersom kompositering/beskärning
     /// går via CoreImage, precis som tidigare.
+    ///
+    /// Ordningen är MEDVETET `colorLook` → bakgrund → form → `layoutWrap`,
+    /// INTE `apply` (look+layout ihop) rakt av som i `refreshEditPreview()`s
+    /// mask-fria förhandsvisning - Polaroid/Fotoautomats ram/remsa gör
+    /// bilden STÖRRE än originalet, och Visions `mask` är beräknad för
+    /// ORIGINALETS dimensioner. Om ramen/remsan låg FÖRE kompositeringen
+    /// skulle masken hamna fel mot den nya, större bilden (fel del av
+    /// resultatet skulle bli "motiv" kontra "bakgrund"), och formbeskärningen
+    /// skulle klippa bort själva ramen/remsan istället för att forma MOTIVET.
+    /// Genom att lägga `layoutWrap` sist, EFTER att motivet redan är
+    /// bakgrundsbytt och formbeskuret, blir varje Fotoautomat-ruta/Polaroid-
+    /// foto exakt det användaren redan positionerat. För alla andra (rena
+    /// färg-)filter är `layoutWrap` en no-op, så deras beteende är oförändrat.
     private func applyPipeline(mask: BackgroundRemovalService.ForegroundMask, original: PlatformImage) {
         let style = backgroundStyle.serviceStyle
         let shape = outputShape
@@ -280,14 +293,15 @@ public final class SearchViewModel: ObservableObject {
 
         Task.detached(priority: .userInitiated) { [backgroundRemoval, shapeCrop, photoFilterService, imageAdjustment] in
             do {
-                let filtered = try photoFilterService.apply(filter, to: original)
-                let adjustedCG = try imageAdjustment.apply(adjustments, to: filtered).cgImageRepresentation
+                let looked = try photoFilterService.colorLook(filter, to: original)
+                let adjustedCG = try imageAdjustment.apply(adjustments, to: looked).cgImageRepresentation
                 let composited = try backgroundRemoval.composite(mask, background: style, foregroundImage: adjustedCG)
                 let shaped = try shapeCrop.apply(shape, to: composited, transform: shapeTransform)
+                let final = try photoFilterService.layoutWrap(filter, wrapping: shaped)
                 await MainActor.run {
                     guard generation == self.backgroundGeneration else { return }
                     self.compositedImage = composited
-                    self.processedImage = shaped
+                    self.processedImage = final
                     self.isProcessing = false
                     self.cachedMask = mask
                     self.cachedMaskSource = original
@@ -468,6 +482,18 @@ public final class SearchViewModel: ObservableObject {
     /// Räknar om `adjustedPreviewImage` - filter + bildkorrigeringar
     /// tillämpade på originalet, ingen Vision inblandad. Delad av
     /// `setPhotoFilter` och `setImageAdjustments`.
+    ///
+    /// Uppdaterar ALLTID `shareURL` här också (inte bara `adjustedPreviewImage`)
+    /// - `currentExportImage`/"Dela" faller tillbaka på just `adjustedPreviewImage`
+    /// så länge `processedImage` är `nil` (ingen riktig bakgrundsborttagning
+    /// körd än), så om `shareURL` inte hänger med HÄR pekar "Dela" (t.ex. som
+    /// SMS) tyst på filen från INNAN редigeringen - upptäckt 2026-09-26,
+    /// samma klass av bugg som SayFrame/Persona-repots exportbugg: en
+    /// manuellt underhållen "cache" (`shareURL`) som måste följa med vid
+    /// VARJE ställe den underliggande bilden ändras, inte bara några av dem.
+    /// `restoreSnapshot`s undo/redo-väg råkade redan göra rätt (anropade
+    /// båda tillsammans) - genom att lägga anropet HÄR istället kan inget
+    /// framtida anrop till `refreshEditPreview()` missa det igen.
     private func refreshEditPreview() {
         guard let original = originalImage else { return }
         let filter = photoFilter
@@ -482,6 +508,7 @@ public final class SearchViewModel: ObservableObject {
             await MainActor.run {
                 guard generation == self.adjustmentGeneration else { return }
                 self.adjustedPreviewImage = preview
+                self.refreshShareURL()
             }
         }
     }
@@ -537,7 +564,14 @@ public final class SearchViewModel: ObservableObject {
             let image = try await Self.loadImage(from: url)
             backgroundPositioningRequest = BackgroundPositioningRequest(image: image, initialTransform: .identity)
         } catch {
-            errorMessage = "Kunde inte läsa bakgrundsbilden: \(error.localizedDescription)"
+            // Prefixet lokaliseras för sig, INTE hela strängen med
+            // `\(error.localizedDescription)` interpolerad direkt i
+            // `String(localized:)`-nyckeln - att handskriva rätt
+            // "%@"-platshållarform i String Catalog-JSON:en för en
+            // interpolerad nyckel är onödigt bräckligt (fel form ger en
+            // TYST fallback till svenska istället för ett fel).
+            let prefix = String(localized: "Kunde inte läsa bakgrundsbilden:", bundle: .module, locale: AppLanguage.current.locale)
+            errorMessage = "\(prefix) \(error.localizedDescription)"
         }
     }
 
@@ -590,7 +624,8 @@ public final class SearchViewModel: ObservableObject {
             let image = try await Self.loadImage(from: url)
             loadImportedImage(image, name: url.lastPathComponent)
         } catch {
-            errorMessage = "Kunde inte läsa den släppta bilden: \(error.localizedDescription)"
+            let prefix = String(localized: "Kunde inte läsa den släppta bilden:", bundle: .module, locale: AppLanguage.current.locale)
+            errorMessage = "\(prefix) \(error.localizedDescription)"
         }
         isLoadingDetail = false
     }
@@ -601,10 +636,10 @@ public final class SearchViewModel: ObservableObject {
     public func pasteFromClipboard() {
         errorMessage = nil
         guard let image = PlatformImage.fromPasteboard() else {
-            errorMessage = "Hittade ingen bild i urklipp. Högerklicka bilden i webbläsaren och välj \"Kopiera bild\" först."
+            errorMessage = String(localized: "Hittade ingen bild i urklipp. Högerklicka bilden i webbläsaren och välj \"Kopiera bild\" först.", bundle: .module, locale: AppLanguage.current.locale)
             return
         }
-        loadImportedImage(image, name: "Inklistrad bild")
+        loadImportedImage(image, name: String(localized: "Inklistrad bild", bundle: .module, locale: AppLanguage.current.locale))
     }
 
     public func loadImportedImage(_ image: PlatformImage, name: String) {
@@ -660,7 +695,9 @@ public final class SearchViewModel: ObservableObject {
 
     private enum LoadImageError: LocalizedError {
         case invalidImageData
-        var errorDescription: String? { "Filen var inte en giltig bild." }
+        var errorDescription: String? {
+            String(localized: "Filen var inte en giltig bild.", bundle: .module, locale: AppLanguage.current.locale)
+        }
     }
 
     /// Bilden "Spara"/"Dela" opererar på just nu - det färdiga
@@ -841,8 +878,9 @@ public final class SearchViewModel: ObservableObject {
             processedImage = nil
             compositedImage = nil
             isProcessing = false
+            // `refreshEditPreview()` uppdaterar `shareURL` själv numera när
+            // dess async-beräkning blir klar - se dess dokumentationskommentar.
             refreshEditPreview()
-            refreshShareURL()
         }
     }
 

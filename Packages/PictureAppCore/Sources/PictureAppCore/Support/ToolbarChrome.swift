@@ -3,13 +3,11 @@ import SwiftUI
 /// Den delade visuella "80/20"-principen för verktygsradens kontroller (se
 /// designmockupen som låg till grund för det här): de flesta kontrollerna
 /// (`.native`) ska kännas som vanliga, obetonade Mac-/iOS-knappar - en tunn
-/// kontur, ingen fyllning, diskret hover/tryck-respons. Ett fåtal
-/// nyckel-actions (`.hero`: BARA Bakgrund och Spara/Dela - appens egna
-/// kärnlöfte, "ta bort/byta bakgrund... och spara resultatet" per
-/// `CLAUDE.md`s enderadsbeskrivning, se motiveringen vid `backgroundMenu`
-/// i `DetailPanel.swift`) får istället en egen, mer designad känsla -
-/// rundad pill i appens accentfärg (`AppTheme.accent`), mjuk skugga/glöd,
-/// en lätt lyft-känsla vid hover.
+/// kontur, ingen fyllning, diskret hover/tryck-respons. EN enda kontroll
+/// (`.hero`: Spara/Dela-klustret, `exportCluster` i `DetailPanel.swift` -
+/// se motiveringen där för varför Bakgrund INTE längre är hero) får
+/// istället en egen, mer designad känsla - rundad pill i appens accentfärg
+/// (`AppTheme.accent`), mjuk skugga/glöd, en lätt lyft-känsla vid hover.
 ///
 /// Delad mellan vanliga `Button`er (via `NativeToolbarButtonStyle` nedan,
 /// som bara skickar `configuration.label` genom den här vyn) OCH

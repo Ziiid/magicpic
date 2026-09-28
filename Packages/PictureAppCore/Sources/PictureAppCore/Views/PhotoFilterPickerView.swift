@@ -18,7 +18,7 @@ struct PhotoFilterPickerView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Filter")
+            Text(L("Filter"))
                 .font(.headline)
 
             ScrollView {
@@ -49,7 +49,7 @@ struct PhotoFilterPickerView: View {
 
             HStack {
                 Spacer()
-                Button("Klart") { onDone() }
+                Button(L("Klart")) { onDone() }
                     .keyboardShortcut(.defaultAction)
             }
         }

@@ -14,7 +14,14 @@ import Foundation
 public struct BackgroundRemovalService {
     public struct RemovalError: LocalizedError {
         let message: String
-        public var errorDescription: String? { message }
+        // `String.LocalizationValue(_ value: String)` - en RUNTIME-nyckel
+        // (inte en bokstavlig sträng vid kompileringstillfället) - gör att
+        // ALLA `RemovalError(message: "...")`-anrop i den här filen kan
+        // lokaliseras genom EN enda punkt istället för att skriva om varje
+        // enskilt `throw`-ställe för sig.
+        public var errorDescription: String? {
+            String(localized: String.LocalizationValue(message), bundle: .module, locale: AppLanguage.current.locale)
+        }
     }
 
     /// Resultatet av Vision-analysen för en bild: originalet plus masken för

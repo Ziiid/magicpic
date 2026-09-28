@@ -21,7 +21,7 @@ struct ShapePickerView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Form")
+            Text(L("Form"))
                 .font(.headline)
 
             ScrollView {
@@ -52,7 +52,7 @@ struct ShapePickerView: View {
 
             HStack {
                 Spacer()
-                Button("Klart") { onDone() }
+                Button(L("Klart")) { onDone() }
                     .keyboardShortcut(.defaultAction)
             }
         }

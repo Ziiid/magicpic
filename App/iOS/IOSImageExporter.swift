@@ -12,8 +12,8 @@ struct IOSImageExporter: ImageExporter {
 
         var errorDescription: String? {
             switch self {
-            case .noData: return "Kunde inte skapa bilddata."
-            case .permissionDenied: return "PictureApp saknar behörighet att spara i Foton."
+            case .noData: return ExporterMessages.couldNotCreateImageData
+            case .permissionDenied: return ExporterMessages.photosPermissionDenied
             }
         }
     }
