@@ -1720,6 +1720,156 @@
           }
         }
       }
+    },
+    "Öppnar": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opens"
+          }
+        }
+      }
+    },
+    "i webbläsaren - kräver att du är inloggad. Kopiera bilden där och klistra in den i appen (drag stöds kanske inte).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "in the browser - requires you to be signed in. Copy the image there and paste it into the app (drag might not be supported)."
+          }
+        }
+      }
+    },
+    "Skriv en bildbeskrivning ovan och tryck på förstoringsglaset -": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type an image description above and tap the magnifying glass -"
+          }
+        }
+      }
+    },
+    "öppnas i webbläsaren. Kräver att du är inloggad. Sidan kanske inte stödjer drag för bilder - högerklicka bilden, välj \"Kopiera bild\", och klistra in den nedan om det behövs.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "opens in the browser. Requires you to be signed in. The site might not support dragging images - right-click the image, choose \"Copy Image\", and paste it below if needed."
+          }
+        }
+      }
+    },
+    "AI-bildgeneratorer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI image generators"
+          }
+        }
+      }
+    },
+    "Namn (t.ex. GPT Image)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name (e.g. GPT Image)"
+          }
+        }
+      }
+    },
+    "Url (t.ex. chatgpt.com)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL (e.g. chatgpt.com)"
+          }
+        }
+      }
+    },
+    "LinkedIn-profil": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LinkedIn Profile"
+          }
+        }
+      }
+    },
+    "Profilbild (cirkel)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avatar Circle"
+          }
+        }
+      }
+    },
+    "CV-kvadrat": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CV Square"
+          }
+        }
+      }
+    },
+    "Instagram-inlägg": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instagram Post"
+          }
+        }
+      }
+    },
+    "Instagram-story": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instagram Story"
+          }
+        }
+      }
+    },
+    "TikTok": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TikTok"
+          }
+        }
+      }
+    },
+    "YouTube-miniatyr": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Thumbnail"
+          }
+        }
+      }
+    },
+    "Bildens egna proportioner": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The image's own proportions"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

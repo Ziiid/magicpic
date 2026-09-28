@@ -236,7 +236,7 @@ public struct BackgroundRemovalService {
     public func composite(_ foreground: ForegroundMask, background: BackgroundStyle, foregroundImage: CGImage? = nil) throws -> PlatformImage {
         let originalCI = CIImage(cgImage: foregroundImage ?? foreground.original)
         let maskCI = CIImage(cvPixelBuffer: foreground.mask)
-        let backgroundCI = try makeBackgroundImage(background, original: originalCI)
+        let backgroundCI = try makeBackgroundImage(background, original: originalCI, extent: originalCI.extent)
 
         guard let blendFilter = CIFilter(name: "CIBlendWithMask") else {
             throw RemovalError(message: "Kunde inte skapa bildfilter.")
@@ -257,9 +257,59 @@ public struct BackgroundRemovalService {
         return PlatformImage(cgImageRepresentation: outputCGImage)
     }
 
-    private func makeBackgroundImage(_ style: BackgroundStyle, original: CIImage) throws -> CIImage {
-        let extent = original.extent
+    /// Renderar BARA bakgrunden (ingen motivpixel alls) i `canvasSize` -
+    /// den storlek motivet till slut hamnar i EFTER formbeskärning/
+    /// positionering (`ShapeCropService.positioned(_:image:transform:)`),
+    /// INTE `referenceImage`s egen storlek. Gör att bakgrunden alltid
+    /// täcker HELA slutkanvasen oavsett var användaren panorerat motivet
+    /// inom den (se `compositeOverCanvas(subject:backgroundFill:)` och
+    /// `buggs.md`) - till skillnad från `composite(_:background:
+    /// foregroundImage:)` ovan, som bakgrundslägger mot HELA
+    /// `foreground`/`foregroundImage`s egen (oframade) storlek.
+    ///
+    /// - Parameter referenceImage: Källan `.blurredOriginal` blurrar - den
+    ///   OBESKURNA bilden (efter filter/justeringar), inte motivurklippet.
+    ///   Oanvänd av övriga stilar.
+    public func backgroundFill(_ style: BackgroundStyle, referenceImage: CGImage, canvasSize: CGSize) throws -> PlatformImage {
+        let backgroundCI = try makeBackgroundImage(style, original: CIImage(cgImage: referenceImage), extent: CGRect(origin: .zero, size: canvasSize))
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(backgroundCI, from: CGRect(origin: .zero, size: canvasSize)) else {
+            throw RemovalError(message: "Kunde inte rendera bakgrunden.")
+        }
+        return PlatformImage(cgImageRepresentation: cgImage)
+    }
 
+    /// Lägger `subject` (redan formbeskuret/positionerat, med sin EGEN
+    /// alfakanal - genomskinligt både där motivet klipptes bort OCH där
+    /// panoreringen lämnat en kant av kanvasen exponerad, se
+    /// `ShapeCropService.positioned(_:image:transform:)`) rakt ovanpå
+    /// `backgroundFill` (redan i samma storlek, se `backgroundFill(_:
+    /// referenceImage:canvasSize:)`). Ren "source over"-kompositering,
+    /// ingen separat mask behövs - `subject`s egen alfa avgör var
+    /// bakgrunden lyser igenom.
+    public func compositeOverCanvas(subject: PlatformImage, backgroundFill: PlatformImage) throws -> PlatformImage {
+        guard let subjectCG = subject.cgImageRepresentation, let backgroundCG = backgroundFill.cgImageRepresentation else {
+            throw RemovalError(message: "Kunde inte läsa bilddata.")
+        }
+        let subjectCI = CIImage(cgImage: subjectCG)
+        let backgroundCI = CIImage(cgImage: backgroundCG)
+
+        guard let compositeFilter = CIFilter(name: "CISourceOverCompositing") else {
+            throw RemovalError(message: "Kunde inte skapa bildfilter.")
+        }
+        compositeFilter.setValue(subjectCI, forKey: kCIInputImageKey)
+        compositeFilter.setValue(backgroundCI, forKey: kCIInputBackgroundImageKey)
+
+        let extent = CGRect(origin: .zero, size: subject.size)
+        let context = CIContext()
+        guard let outputImage = compositeFilter.outputImage,
+              let outputCGImage = context.createCGImage(outputImage, from: extent) else {
+            throw RemovalError(message: "Kunde inte rendera resultatet.")
+        }
+        return PlatformImage(cgImageRepresentation: outputCGImage)
+    }
+
+    private func makeBackgroundImage(_ style: BackgroundStyle, original: CIImage, extent: CGRect) throws -> CIImage {
         switch style {
         case .transparent:
             return CIImage(color: .clear).cropped(to: extent)
@@ -276,16 +326,37 @@ public struct BackgroundRemovalService {
             // bildens ursprungliga gränser.
             blurFilter.setValue(original.clampedToExtent(), forKey: kCIInputImageKey)
             blurFilter.setValue(radius, forKey: kCIInputRadiusKey)
-            guard let blurred = blurFilter.outputImage?.cropped(to: extent) else {
+            guard let blurred = blurFilter.outputImage else {
                 throw RemovalError(message: "Kunde inte skapa oskärpan.")
             }
-            return blurred
+            // Beskärningsfönstret CENTRERAS inom `original`s egna gränser
+            // istället för att bara beskäras vid origo - `extent` är inte
+            // alltid `original.extent` längre (se `backgroundFill(_:
+            // referenceImage:canvasSize:)`, som skickar in slutkanvasens,
+            // ofta mindre, kvadratiska storlek) - annars skulle en
+            // liggande/stående bilds kvadratiska oskärpe-bakgrund bli
+            // beskuren i ett hörn istället för mitten.
+            let dx = (original.extent.width - extent.width) / 2
+            let dy = (original.extent.height - extent.height) / 2
+            let centeredExtent = CGRect(x: original.extent.minX + dx, y: original.extent.minY + dy, width: extent.width, height: extent.height)
+            let cropped = blurred.cropped(to: centeredExtent)
+            return cropped.transformed(by: CGAffineTransform(translationX: extent.minX - centeredExtent.minX, y: extent.minY - centeredExtent.minY))
 
         case .custom(let customImage, let transform):
             guard let customCG = customImage.cgImageRepresentation else {
                 throw RemovalError(message: "Kunde inte läsa den valda bakgrundsbilden.")
             }
-            return transform.scaledToFill(CIImage(cgImage: customCG), target: extent)
+            // `allowsExposedEdges: true` - användaren får medvetet panorera
+            // bakgrundsbilden så en kant av `extent` blottas (se
+            // `CanvasTransform.scaledToFill`) istället för att den alltid
+            // tvingas täcka hela ytan. De blottade pixlarna blir
+            // genomskinliga i den returnerade bilden - både `composite()`s
+            // `CIBlendWithMask` (visar `backgroundCI` rakt av där masken
+            // säger "inte motiv") och `compositeOverCanvas`s raka
+            // "source over" hanterar en genomskinlig bakgrund korrekt utan
+            // vidare - i sista änden kvar som alfa i PNG, lagd mot vitt i
+            // JPEG (`PlatformImage.exportData(as:)`).
+            return transform.scaledToFill(CIImage(cgImage: customCG), target: extent, allowsExposedEdges: true)
         }
     }
 }

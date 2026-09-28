@@ -2,10 +2,20 @@ import CoreGraphics
 import CoreImage
 import Foundation
 
-/// Beskär och maskerar den redan färdigt kompositerade bilden (motiv +
-/// bakgrund) till en vald form. Körs som ett sista steg EFTER
-/// `BackgroundRemovalService` - det påverkar bara slutresultatets kontur,
-/// inte själva urklippet eller bakgrundsvalet.
+/// Positionerar/beskär till en vald form. Två separata steg, medvetet
+/// hållna isär (se `positioned(_:image:transform:)` och
+/// `applyingSilhouette(_:to:)`):
+///
+/// `SearchViewModel.applyPipeline` positionerar numera motivets
+/// GENOMSKINLIGA urklipp i kanvasen INNAN bakgrunden läggs på (så en vald
+/// bakgrundsfärg/bild kan fylla HELA kanvasen, oavsett var motivet råkar
+/// vara panorerat - se `buggs.md`), och lägger först sedan formens
+/// siluett (cirkel/hexagon/...) över den FÄRDIGA kompositen. `apply(_:to:
+/// transform:)` finns kvar oförändrad som en bekvämlighetsmetod som gör
+/// båda stegen i ett svep, mot en REDAN kompositerad bild (motiv+bakgrund
+/// ihopslaget) - fortfarande använd av `ShapePickerView`s
+/// formförhandsvisningar, som inte har någon anledning att hålla isär
+/// motiv och bakgrund.
 public struct ShapeCropService {
     public struct ShapeError: LocalizedError {
         let message: String
@@ -17,24 +27,54 @@ public struct ShapeCropService {
 
     public init() {}
 
-    /// - Parameter transform: Användarens pan/zoom av motivet inom den
-    ///   kvadratiska duken, satt via `ImagePositionerView`. `.identity` ger
-    ///   en centrerad kvadratisk beskärning, precis som tidigare.
-    public func apply(_ shape: OutputShape, to image: PlatformImage, transform: CanvasTransform = .identity) throws -> PlatformImage {
-        guard shape != .rectangle else { return image }
+    /// Kanvasens storlek för en given preset/källstorlek - den största
+    /// rektangeln med `preset.aspectRatio` som får plats centrerat i
+    /// `sourceSize` (en "cover"-beskärning till bildförhållandet), eller
+    /// källans egna mått oförändrade om `aspectRatio` är `nil` (bara
+    /// Rektangel - ingen formbeskärning alls). Generaliserar den tidigare
+    /// hårdkodade `min(bredd,höjd)`-kvadraten, som var specialfallet
+    /// `aspectRatio == 1` (verifierat: samma resultat för det fallet).
+    public static func canvasSize(for preset: ShapePreset, sourceSize: CGSize) -> CGSize {
+        guard let aspectRatio = preset.aspectRatio, sourceSize.width > 0, sourceSize.height > 0 else { return sourceSize }
+        let sourceAspect = sourceSize.width / sourceSize.height
+        return sourceAspect > aspectRatio
+            ? CGSize(width: sourceSize.height * aspectRatio, height: sourceSize.height)
+            : CGSize(width: sourceSize.width, height: sourceSize.width / aspectRatio)
+    }
+
+    /// Positionerar `image` (pan/zoom/rotation från `transform`) in i
+    /// kanvasen för `preset` - bara beskärningen till rätt bildförhållande,
+    /// INGEN formsiluett (cirkel/hexagon/...) läggs på här.
+    /// `allowsExposedEdges: true` - se `CanvasTransform.scaledToFill`s
+    /// dokumentation - en kant får medvetet lämnas genomskinlig;
+    /// anropsstället ansvarar för att fylla den (bakgrunden, komponerad
+    /// separat i kanvasens storlek).
+    public func positioned(_ preset: ShapePreset, image: PlatformImage, transform: CanvasTransform = .identity) throws -> PlatformImage {
+        guard preset.aspectRatio != nil else { return image }
 
         guard let cgImage = image.cgImageRepresentation else {
             throw ShapeError(message: "Kunde inte läsa bilddata.")
         }
 
         let original = CIImage(cgImage: cgImage)
-        let side = min(original.extent.width, original.extent.height)
-        let canvasSize = CGSize(width: side, height: side)
-        let squared = transform.scaledToFill(original, target: CGRect(origin: .zero, size: canvasSize))
+        let canvasSize = Self.canvasSize(for: preset, sourceSize: image.size)
+        let squared = transform.scaledToFill(original, target: CGRect(origin: .zero, size: canvasSize), allowsExposedEdges: true)
+        return try Self.render(squared, size: canvasSize)
+    }
 
-        guard shape != .square else {
-            return try Self.render(squared, size: canvasSize)
+    /// Klipper en REDAN kanvas-formad bild (se `positioned(_:image:
+    /// transform:)` eller en annan bild med samma mått) till formens
+    /// siluett. No-op för `.square`/`.rectangle` - de är redan rektanglar
+    /// (oavsett bildförhållande), ingen extra mask behövs.
+    public func applyingSilhouette(_ shape: OutputShape, to image: PlatformImage) throws -> PlatformImage {
+        guard shape != .square, shape != .rectangle else { return image }
+
+        guard let cgImage = image.cgImageRepresentation else {
+            throw ShapeError(message: "Kunde inte läsa bilddata.")
         }
+
+        let squared = CIImage(cgImage: cgImage)
+        let canvasSize = squared.extent.size
 
         guard let maskCGImage = Self.rasterizeMask(for: shape, size: canvasSize) else {
             throw ShapeError(message: "Kunde inte skapa formens mask.")
@@ -51,6 +91,20 @@ public struct ShapeCropService {
             throw ShapeError(message: "Kunde inte tillämpa formen.")
         }
         return try Self.render(output, size: canvasSize)
+    }
+
+    /// Positionerar OCH klipper siluetten i ETT svep, mot en REDAN
+    /// kompositerad bild (motiv+bakgrund ihopslaget) - se filens
+    /// dokumentation för varför `SearchViewModel.applyPipeline` inte
+    /// längre använder den här för slutresultatet (bakgrunden skulle då
+    /// bara fylla den positionerade bildens egna gränser, inte hela
+    /// kanvasen). Fortfarande använd av `ShapePickerView`s
+    /// formförhandsvisningar.
+    ///
+    /// - Parameter transform: Användarens pan/zoom av motivet inom duken.
+    ///   `.identity` ger en centrerad beskärning.
+    public func apply(_ preset: ShapePreset, to image: PlatformImage, transform: CanvasTransform = .identity) throws -> PlatformImage {
+        try applyingSilhouette(preset.contour, to: try positioned(preset, image: image, transform: transform))
     }
 
     private static func render(_ ciImage: CIImage, size: CGSize) throws -> PlatformImage {

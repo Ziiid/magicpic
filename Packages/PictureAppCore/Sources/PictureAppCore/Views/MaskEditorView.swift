@@ -168,7 +168,16 @@ struct MaskEditorView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 420, idealWidth: 520, minHeight: 520, idealHeight: 620)
+        // Mycket större arbetsyta än en vanlig liten dialog - Finjustera
+        // används för precisionsarbete (hårstrån, kanter) där bilden
+        // tidigare var för liten för att se vad man faktiskt målade
+        // (rapporterat). `GeometryReader`-canvasen ovan har inget eget
+        // fast mått - den fyller redan automatiskt allt utrymme `VStack`en
+        // ger den, så det här är den enda ändring som behövs för att göra
+        // bilden till den DOMINERANDE delen av ytan; `maxWidth/maxHeight:
+        // .infinity` låter den dessutom växa vidare om fönstret är större
+        // än `idealWidth/idealHeight`.
+        .frame(minWidth: 640, idealWidth: 900, maxWidth: .infinity, minHeight: 560, idealHeight: 760, maxHeight: .infinity)
         .task { await recomposite() }
     }
 

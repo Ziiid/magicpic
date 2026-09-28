@@ -3,6 +3,87 @@
 Logg över buggar som upptäckts under utveckling, med symptom, rotorsak och
 fix, så att liknande misstag inte upprepas. Nyast överst.
 
+## 2026-09-29: Vald bakgrund fyllde inte hela kanvasen efter att motivet panorerats till ett hörn
+
+**Symptom:** Rapporterat av användaren direkt efter att "tillåt exponerad
+kant vid panorering" lagts till (samma session, se posten precis nedan):
+ladda en bild, dra motivet mot ett hörn så en kant av kanvasen exponeras
+(avsett, nytt beteende) - öppna sedan Bakgrund och välj t.ex. grön. Grönt
+fyllde bara den FLYTTADE bildens egna gränser, inte resten av kanvasen -
+de exponerade hörnen förblev genomskinliga/checkerboard istället för
+gröna.
+
+**Rotorsak:** `SearchViewModel.applyPipeline` körde bakgrundskompositering
+(`BackgroundRemovalService.composite`) mot HELA originalbildens rektangel
+FÖRE formbeskärningen/positioneringen (`ShapeCropService.apply`,
+`outputShapeTransform`) - dvs. bakgrunden bakades in i en platt rektangel,
+och den FÄRDIGA (motiv+bakgrund ihopslagna) rektangeln var det som sedan
+panorerades/beskars in i den kvadratiska kanvasen. Så länge panoreringen
+tvingades täcka hela kanvasen (innan föregående fix i den här posten) syntes
+aldrig problemet - men så fort panorering fick lämna en kant exponerad (se
+`CanvasTransform.scaledToFill`s `allowsExposedEdges`) blev det uppenbart:
+det som exponerades var kanten av den FÄRDIGA rektangeln, inte "riktig"
+genomskinlighet en bakgrund kunde fylla i efterhand - bakgrunden satt redan
+fast i pixlarna, låst till rektangelns egna gränser, oavsett var den sedan
+panorerades.
+
+**Fix:** Ordningen i `applyPipeline` vändes - motivet klipps nu ut mot en
+GENOMSKINLIG bakgrund direkt (`composite(..., background: .transparent)`),
+positioneras/beskärs i kanvasen (`ShapeCropService.positioned`, ny metod -
+bara den kvadratiska beskärningen, ingen formsiluett än), och bakgrunden
+(färg/oskärpa/egen bild) renderas SEPARAT, direkt i SLUTKANVASENS storlek
+(`BackgroundRemovalService.backgroundFill`, ny metod) - inte originalbildens.
+De två läggs ihop med ren "source over"-kompositering
+(`compositeOverCanvas`, ny metod - motivets EGNA alfakanal, redan satt av
+urklippet OCH av den exponerade kanten, avgör var bakgrunden lyser
+igenom), och FÖRST DÄREFTER läggs formens siluett (cirkel/hexagon/...) på
+den färdiga kompositen (`ShapeCropService.applyingSilhouette`, ny metod).
+Bakgrunden är därmed helt frikopplad från var motivet råkar vara
+positionerat - den fyller alltid hela kanvasen. Den gamla, odelade
+`ShapeCropService.apply(_:to:transform:)` (positionering+siluett i ett
+svep, mot en redan bakgrundsbakad rektangel) finns kvar oförändrad åt
+`ShapePickerView`s formförhandsvisningar, som medvetet inte bryr sig om
+skillnaden. `SubjectFramingCanvas` (den inbäddade ramningsytan i
+`DetailPanel`) fick av samma skäl ett nytt, FAST bakgrundslager bakom
+motivet (en enkel SwiftUI-approximation - `Color`/`.blur`/enkla
+transform-modifiers, inte hela CoreImage-pipelinen per bildruta) istället
+för att panorera en redan bakgrundsbakad bild, annars hade
+live-förhandsvisningen fortsatt visa den gamla, trasiga bilden trots att
+den exporterade filen blivit rätt.
+
+**Lärdom:** En "tillåt exponerad kant"-ändring (föregående post) är bara
+halva jobbet om ett SENARE pipeline-steg redan bakat in bakgrunden i
+samma flata bild som sedan positioneras/beskärs - det som exponeras är då
+den bakade bildens egen kant, inte en riktig lucka bakgrunden kan fylla i.
+När ett lager (här: bakgrunden) logiskt ska vara oberoende av ett ANNAT
+lagers (här: motivets) position/beskärning måste de hållas isär och
+komponeras i rätt ordning - inte bara "positionera helheten och lita på
+att transparens räcker".
+
+## 2026-09-29: Motivpositionering "hoppade" tillbaka vid gestens slut
+
+**Symptom:** Rapporterat av användaren: dra en bild (större än kanvasen,
+eller panorerad utanför den) mot ett hörn så bara en del av bilden syns
+inom kanvasen - så fort musknappen släpps hoppar bilden tillbaka och fyller
+hela kanvasen igen istället för att stanna där den släpptes.
+
+**Rotorsak:** `ManipulableImageView`s `onEnded`-hanterare för både drag och
+nyp anropade `CanvasTransform.clampedOffset`/`scaledToFill` UTAN undantag -
+båda klampar panoreringen/beskärningsfönstret till att alltid täcka hela
+mål-/kanvasytan (avsett för den ursprungliga "cover"-designen). Live-draget
+(`liveDrag`, en `@GestureState`) visade den fria, oklampade positionen
+under själva draget, men vid släpp skrevs den KLAMPADE positionen tillbaka
+till `transform.offset` - därav hoppet.
+
+**Fix:** Ny `allowsExposedEdges`-parameter på `ManipulableImageView` och
+`CanvasTransform.scaledToFill` - när satt hoppas klampningen över helt, så
+den committade positionen blir exakt den man släppte vid. Satt `true` både
+i `ImagePositionerView` (bakgrundspositioneraren) och `SubjectFramingCanvas`
+(motivets formramning i `DetailPanel`) - båda beskär i praktiken en REDAN
+kompositerad/urklippt bild, inte Visions mask, så ingen risk för "hål" i
+själva motivurklippet, bara att kompositen/urklippet inte fyller hela
+kanvasen (se posten ovan för vad det i sin tur krävde för bakgrunden).
+
 ## 2026-09-26: Fotoautomat-remsan visades bara till hälften (2 av 4 bilder)
 
 **Symptom:** Rapporterat av användaren direkt efter att Fotoautomat-stilen

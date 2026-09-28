@@ -45,9 +45,13 @@ struct ImagePositionerView: View {
         self.doneLabel = doneLabel
         self.onDone = onDone
         self.onCancel = onCancel
+        // `CanvasTransform.minScale`, inte `1` - annars skulle att öppna
+        // positioneraren igen för en bild man redan medvetet gjort mindre
+        // än kanvasen (se `allowsExposedEdges`/`ManipulableImageView`)
+        // tvinga tillbaka den till cover-storlek bara av att öppna dialogen.
         _transform = State(initialValue: CanvasTransform(
             offset: initialTransform.offset,
-            scale: max(initialTransform.scale, 1),
+            scale: max(initialTransform.scale, CanvasTransform.minScale),
             rotation: initialTransform.rotation
         ))
     }
@@ -60,7 +64,7 @@ struct ImagePositionerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            ManipulableImageView(image: image, clipShape: clipShape, transform: $transform)
+            ManipulableImageView(image: image, clipShape: clipShape, transform: $transform, allowsExposedEdges: true)
                 .aspectRatio(previewAspectRatio, contentMode: .fit)
                 .background(CheckerboardBackground())
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -73,8 +77,8 @@ struct ImagePositionerView: View {
                     Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
                     Slider(value: Binding(
                         get: { transform.scale },
-                        set: { transform.scale = max($0, 1) }
-                    ), in: 1...6)
+                        set: { transform.scale = max($0, CanvasTransform.minScale) }
+                    ), in: CanvasTransform.minScale...6)
                     Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
                 }
                 HStack {

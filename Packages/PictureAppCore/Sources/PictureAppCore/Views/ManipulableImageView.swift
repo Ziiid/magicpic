@@ -17,6 +17,15 @@ struct ManipulableImageView: View {
     let clipShape: AnyShape
     @Binding var transform: CanvasTransform
     var onCommit: () -> Void = {}
+    // Satt av BÅDA anropsställena (`ImagePositionerView` för
+    // bakgrundsbilden, `SubjectFramingCanvas` i `DetailPanel` för
+    // formramningen) - se `CanvasTransform.scaledToFill`s dokumentation för
+    // varför ingen av dem riskerar "hål" i själva motivurklippet trots det
+    // (båda beskär en REDAN kompositerad bild, inte Visions mask). `false`
+    // är bara kvar som ett säkert default om `ManipulableImageView`
+    // återanvänds någon annanstans senare utan att uttryckligen ta
+    // ställning.
+    var allowsExposedEdges: Bool = false
 
     @GestureState private var liveDrag: CGSize = .zero
     @GestureState private var liveMagnification: CGFloat = 1
@@ -25,7 +34,13 @@ struct ManipulableImageView: View {
     var body: some View {
         GeometryReader { geo in
             let containerSize = geo.size
-            let scale = max(transform.scale * liveMagnification, 1)
+            // Minsta tillåtna zoom är BARA `1` ("precis täcker kanvasen")
+            // om `allowsExposedEdges` är falskt - annars (de faktiska
+            // anropsställena idag) får bilden medvetet göras mindre än
+            // kanvasen, ner till `CanvasTransform.minScale`, se dess
+            // dokumentation.
+            let minScale: CGFloat = allowsExposedEdges ? CanvasTransform.minScale : 1
+            let scale = max(transform.scale * liveMagnification, minScale)
             let rotation = transform.rotation + liveRotation
             let committedOffset = CGSize(
                 width: transform.offset.width * containerSize.width,
@@ -51,10 +66,18 @@ struct ManipulableImageView: View {
                                 width: committedOffset.width + value.translation.width,
                                 height: committedOffset.height + value.translation.height
                             )
-                            let clamped = CanvasTransform.clampedOffset(newOffset, scale: scale, imageSize: image.size, containerSize: containerSize)
+                            // Klampningen tvingar bilden att alltid täcka
+                            // `containerSize` helt - fel för
+                            // bakgrundspositioneraren, som medvetet ska
+                            // tillåta att man panorerar så en kant blottas
+                            // (checkerboard/genomskinlighet), se
+                            // `allowsExposedEdges`s dokumentation ovan.
+                            let resolvedOffset = allowsExposedEdges
+                                ? newOffset
+                                : CanvasTransform.clampedOffset(newOffset, scale: scale, imageSize: image.size, containerSize: containerSize)
                             transform.offset = CGSize(
-                                width: clamped.width / containerSize.width,
-                                height: clamped.height / containerSize.height
+                                width: resolvedOffset.width / containerSize.width,
+                                height: resolvedOffset.height / containerSize.height
                             )
                             onCommit()
                         }
@@ -62,12 +85,14 @@ struct ManipulableImageView: View {
                             MagnifyGesture()
                                 .updating($liveMagnification) { value, state, _ in state = value.magnification }
                                 .onEnded { value in
-                                    transform.scale = max(transform.scale * value.magnification, 1)
-                                    let clamped = CanvasTransform.clampedOffset(committedOffset, scale: transform.scale, imageSize: image.size, containerSize: containerSize)
-                                    transform.offset = CGSize(
-                                        width: clamped.width / containerSize.width,
-                                        height: clamped.height / containerSize.height
-                                    )
+                                    transform.scale = max(transform.scale * value.magnification, minScale)
+                                    if !allowsExposedEdges {
+                                        let clamped = CanvasTransform.clampedOffset(committedOffset, scale: transform.scale, imageSize: image.size, containerSize: containerSize)
+                                        transform.offset = CGSize(
+                                            width: clamped.width / containerSize.width,
+                                            height: clamped.height / containerSize.height
+                                        )
+                                    }
                                     onCommit()
                                 }
                         )

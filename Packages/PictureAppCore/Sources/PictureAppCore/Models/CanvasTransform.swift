@@ -14,25 +14,50 @@ public struct CanvasTransform: Equatable {
 
     public static let identity = CanvasTransform(offset: .zero, scale: 1, rotation: .zero)
 
+    /// Lägsta tillåtna `scale` (som andel av "cover"-skalan, `1` = precis
+    /// täcker kanvasen) när `allowsExposedEdges` är satt - annars skulle
+    /// bilden kunna zoomas bort till praktiskt taget osynlig/omöjlig att
+    /// träffa med en gest. ~15% av cover-storleken lämnar gott om utrymme
+    /// att medvetet göra bilden mindre än kanvasen (se `buggs.md`) utan den
+    /// risken. EN enda konstant, återanvänd av `ManipulableImageView`
+    /// (live-förhandsvisningen) OCH `scaledToFill` (slutrenderingen), så de
+    /// aldrig kan hamna i otakt med varandra.
+    public static let minScale: CGFloat = 0.15
+
     public init(offset: CGSize = .zero, scale: CGFloat = 1, rotation: Angle = .zero) {
         self.offset = offset
         self.scale = scale
         self.rotation = rotation
     }
 
-    /// Roterar, skalar och beskär `image` så den täcker `target` helt
-    /// (aspect fill), justerad med denna pan/zoom/rotation. Rotationen
-    /// tillämpas runt bildens eget centrum FÖRE skalningen, som räknas mot
-    /// den roterade bildens (större) begränsningsruta - annars skulle en
-    /// roterad bild kunna lämna tomma hörn. `scale` klampas till minst 1 -
-    /// att zooma UT under "cover"-nivån skulle blotta kanter utan
-    /// bildinnehåll. Beskärningsfönstret klampas i sin tur till att alltid
-    /// ligga innanför den skalade bilden, så en panorering aldrig kan dra
-    /// fram tomma kanter (även om transformen råkar ange ett värde utanför
-    /// giltigt intervall). Delad av `BackgroundRemovalService` (egen
-    /// bakgrundsbild) och `ShapeCropService` (motivets placering i formen)
-    /// så de beter sig identiskt.
-    public func scaledToFill(_ image: CIImage, target: CGRect) -> CIImage {
+    /// Roterar, skalar och beskär `image` mot `target`, justerad med denna
+    /// pan/zoom/rotation. Rotationen tillämpas runt bildens eget centrum
+    /// FÖRE skalningen, som räknas mot den roterade bildens (större)
+    /// begränsningsruta - annars skulle en roterad bild kunna lämna tomma
+    /// hörn. Delad av `BackgroundRemovalService` (egen bakgrundsbild) och
+    /// `ShapeCropService` (motivets placering i formen) så de beter sig
+    /// identiskt.
+    ///
+    /// - Parameter allowsExposedEdges: Om sant hoppas den annars ovillkorade
+    ///   "cover"-klampningen över på TVÅ sätt: `scale` tillåts gå ner till
+    ///   `CanvasTransform.minScale` (inte bara ner till `1`, "precis
+    ///   täcker") och beskärningsfönstret klampas inte längre till att
+    ///   ligga innanför den skalade bilden - en användare kan alltså
+    ///   medvetet göra bilden MINDRE än kanvasen och/eller panorera så en
+    ///   kant av `target` blottas. `CIImage` returnerar genomskinliga
+    ///   pixlar för koordinater utanför sin egen `extent` (samma beteende
+    ///   som redan noterat för `CIGaussianBlur` i
+    ///   `BackgroundRemovalService.makeBackgroundImage`), så resultatet blir
+    ///   automatiskt genomskinligt där bilden inte når fram - ingen extra
+    ///   kompositering behövs. Satt av BÅDA anropsställena idag
+    ///   (`BackgroundRemovalService`s egna bakgrundsbild och
+    ///   `ShapeCropService` - se dess dokumentation för varför ingen av dem
+    ///   riskerar "hål" i själva motivurklippet trots det, de beskär en
+    ///   REDAN kompositerad bild, inte Visions mask). `false` är bara kvar
+    ///   som ett säkert default ("alltid full täckning") om metoden
+    ///   återanvänds någon annanstans senare utan att uttryckligen ta
+    ///   ställning.
+    public func scaledToFill(_ image: CIImage, target: CGRect, allowsExposedEdges: Bool = false) -> CIImage {
         let rotated: CIImage
         if rotation == .zero {
             rotated = image
@@ -44,7 +69,7 @@ public struct CanvasTransform: Equatable {
         }
 
         let baseScale = max(target.width / rotated.extent.width, target.height / rotated.extent.height)
-        let effectiveScale = baseScale * max(scale, 1)
+        let effectiveScale = baseScale * max(scale, allowsExposedEdges ? Self.minScale : 1)
         let scaled = rotated.transformed(by: CGAffineTransform(scaleX: effectiveScale, y: effectiveScale))
 
         let centeredX = (scaled.extent.width - target.width) / 2
@@ -54,10 +79,17 @@ public struct CanvasTransform: Equatable {
         let panX = offset.width * target.width
         let panY = -offset.height * target.height
 
-        let maxX = max(scaled.extent.width - target.width, 0)
-        let maxY = max(scaled.extent.height - target.height, 0)
-        let cropX = min(max(centeredX - panX, 0), maxX)
-        let cropY = min(max(centeredY - panY, 0), maxY)
+        let cropX: CGFloat
+        let cropY: CGFloat
+        if allowsExposedEdges {
+            cropX = centeredX - panX
+            cropY = centeredY - panY
+        } else {
+            let maxX = max(scaled.extent.width - target.width, 0)
+            let maxY = max(scaled.extent.height - target.height, 0)
+            cropX = min(max(centeredX - panX, 0), maxX)
+            cropY = min(max(centeredY - panY, 0), maxY)
+        }
 
         let cropOrigin = CGPoint(x: scaled.extent.minX + cropX, y: scaled.extent.minY + cropY)
         let cropped = scaled.cropped(to: CGRect(origin: cropOrigin, size: target.size))

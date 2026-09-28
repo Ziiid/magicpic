@@ -107,6 +107,39 @@ public extension PlatformImage {
         return PlatformImage(cgImageRepresentation: output)
     }
 
+    /// Skalar bilden till EXAKT `targetSize` - används av
+    /// `SearchViewModel.applyPipeline` för att tvinga fram en praktisk
+    /// formpresets fasta exportpixelmått (t.ex. 1080×1350 för "Instagram-
+    /// inlägg", se `ShapePreset.pixelSize`). Skalar med EN GEMENSAM faktor
+    /// (aldrig separat X/Y) - förvränger alltså ALDRIG bilden, även om
+    /// källans bildförhållande av någon anledning skulle avvika något från
+    /// `targetSize`s (t.ex. avrundning i `ShapeCropService.canvasSize`) -
+    /// `max(...)`-skalning ("cover", samma princip som
+    /// `CanvasTransform.scaledToFill`/`clampedOffset` redan använder) följt
+    /// av en centrerad beskärning till exakt `targetSize` tar hand om en
+    /// sådan avvikelse utan att sträcka bilden. I praktiken matchar källans
+    /// bildförhållande redan `targetSize`s exakt (`ShapePreset.aspectRatio`
+    /// härleds FRÅN `pixelSize`), så beskärningen blir ett no-op i
+    /// normalfallet - skyddet är bara en garanti, inte den vanliga vägen.
+    func resized(to targetSize: CGSize) -> PlatformImage {
+        guard let cgImage = cgImageRepresentation else { return self }
+        let ciImage = CIImage(cgImage: cgImage)
+        guard ciImage.extent.width > 0, ciImage.extent.height > 0, targetSize.width > 0, targetSize.height > 0 else { return self }
+
+        let scale = max(targetSize.width / ciImage.extent.width, targetSize.height / ciImage.extent.height)
+        let scaled = ciImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+
+        let cropOrigin = CGPoint(
+            x: scaled.extent.minX + (scaled.extent.width - targetSize.width) / 2,
+            y: scaled.extent.minY + (scaled.extent.height - targetSize.height) / 2
+        )
+        let cropped = scaled.cropped(to: CGRect(origin: cropOrigin, size: targetSize))
+            .transformed(by: CGAffineTransform(translationX: -cropOrigin.x, y: -cropOrigin.y))
+
+        guard let output = CIContext().createCGImage(cropped, from: CGRect(origin: .zero, size: targetSize)) else { return self }
+        return PlatformImage(cgImageRepresentation: output)
+    }
+
     /// Kodar bilden till valt exportformat (se `ImageExportFormat`, använd
     /// av "Spara"/"Dela") - `pngData()`/`jpegData(compressionQuality:)`
     /// finns redan var för sig per plattform, men själva VALET av format

@@ -17,6 +17,11 @@ public struct ContentView: View {
     @AppStorage("useDarkMode") private var useDarkMode = false
     // Default ENGELSKA - se `AppLanguage`s dokumentation för varför.
     @AppStorage("appLanguage") private var appLanguage: AppLanguage = .english
+    // Användartillagda AI-bildgeneratorer (namn + URL) - se `SettingsView`
+    // och `AIImageGenerator`. Sparas som JSON via `AIImageGeneratorList`
+    // eftersom `@AppStorage` inte stödjer en array av `Codable`-structar
+    // direkt.
+    @AppStorage("aiImageGenerators") private var generatorsList = AIImageGeneratorList()
 
     public init(exporter: ImageExporter) {
         _viewModel = StateObject(wrappedValue: SearchViewModel(exporter: exporter))
@@ -114,8 +119,8 @@ public struct ContentView: View {
                     .onSubmit { openWebSearch() }
 
                 Picker(L("Källa"), selection: $viewModel.searchEngine) {
-                    ForEach(WebSearchEngine.allCases) { engine in
-                        Text(engine.rawValue).tag(engine)
+                    ForEach(imageSources) { source in
+                        Text(source.label).tag(source)
                     }
                 }
                 .labelsHidden()
@@ -146,24 +151,44 @@ public struct ContentView: View {
         }
         .padding(12)
         .sheet(isPresented: $showSettings) {
-            SettingsView(useDarkMode: $useDarkMode, appLanguage: $appLanguage)
+            SettingsView(useDarkMode: $useDarkMode, appLanguage: $appLanguage, generators: $generatorsList)
         }
     }
 
-    /// Tooltip på sök-knappen - skiljer sig per källa eftersom ChatGPT
-    /// inte stödjer drag (se `webSearchPlaceholder`/`buggs.md`), till
-    /// skillnad från Google/Pinterest.
+    /// Alla val i "Källa"-väljaren - de hårdkodade sökmotorerna (Google/
+    /// Pinterest) följt av användarens egna AI-bildgeneratorer, tillagda i
+    /// Inställningar.
+    private var imageSources: [ImageSource] {
+        WebSearchEngine.allCases.map(ImageSource.engine) + generatorsList.items.map(ImageSource.generator)
+    }
+
+    /// Tooltip på sök-knappen - skiljer sig per källa eftersom en AI-
+    /// bildgenerator inte antas stödja drag (se `webSearchPlaceholder`/
+    /// `buggs.md`), till skillnad från Google/Pinterest.
     private var webSearchHelpText: String {
         let locale = AppLanguage.current.locale
-        switch viewModel.searchEngine {
-        case .chatGPT:
-            return String(localized: "Öppnar ChatGPT i webbläsaren - kräver att du är inloggad. Kopiera bilden där och klistra in den i appen (drag stöds inte).", bundle: .module, locale: locale)
-        case .google, .pinterest:
-            return String(localized: "Öppnar i webbläsaren - dra sedan in bilden du hittar i appen.", bundle: .module, locale: locale)
+        if case .generator(let generator) = viewModel.searchEngine {
+            let prefix = String(localized: "Öppnar", bundle: .module, locale: locale)
+            let suffix = String(localized: "i webbläsaren - kräver att du är inloggad. Kopiera bilden där och klistra in den i appen (drag stöds kanske inte).", bundle: .module, locale: locale)
+            return "\(prefix) \(generator.name) \(suffix)"
         }
+        return String(localized: "Öppnar i webbläsaren - dra sedan in bilden du hittar i appen.", bundle: .module, locale: locale)
     }
 
-    /// Öppnar vald källa (sökmotor eller ChatGPT) i systemets webbläsare
+    /// Instruktionstexten i `webSearchPlaceholder` för en AI-generator -
+    /// generatorns namn är rådata (användaren har skrivit in det i
+    /// Inställningar) och kan därför inte vara del av själva
+    /// lokaliseringsnyckeln (se `CLAUDE.md`s regel om interpolerad data i
+    /// lokaliserade strängar) - delas därför upp i en fast, lokaliserad
+    /// prefix/suffix-text med namnet konkatenerat emellan.
+    private func generatorInstructionText(for generator: AIImageGenerator) -> String {
+        let locale = AppLanguage.current.locale
+        let prefix = String(localized: "Skriv en bildbeskrivning ovan och tryck på förstoringsglaset -", bundle: .module, locale: locale)
+        let suffix = String(localized: "öppnas i webbläsaren. Kräver att du är inloggad. Sidan kanske inte stödjer drag för bilder - högerklicka bilden, välj \"Kopiera bild\", och klistra in den nedan om det behövs.", bundle: .module, locale: locale)
+        return "\(prefix) \(generator.name) \(suffix)"
+    }
+
+    /// Öppnar vald källa (sökmotor eller AI-bildgenerator) i systemets webbläsare
     /// med aktuell sökterm/prompt. Appen hämtar inga bilder själv härifrån
     /// - användaren hittar/skapar bilden i webbläsaren och drar in den i
     /// appen, vilket `.onDrop` på `mainContent` redan hanterar (fjärr-
@@ -231,9 +256,10 @@ public struct ContentView: View {
     /// `openWebSearch()`) så man får riktiga sökresultat eller en riktig
     /// AI-genererad bild, utan API-nyckel; bilden man hittar/skapar dras
     /// sedan in hit, vilket `.onDrop` på `mainContent` redan hanterar -
-    /// UTOM för ChatGPT, vars sida inte stödjer drag för bilder alls (se
-    /// `handleDrop` och `buggs.md`), så en egen "Klistra in bild"-knapp
-    /// visas HÄR bara när ChatGPT är vald källa (annars är den bara
+    /// UTOM för AI-bildgeneratorer, vars sida vi inte kan anta stödjer
+    /// drag för bilder (se `handleDrop` och `buggs.md`, tidigare bekräftat
+    /// för ChatGPT specifikt), så en egen "Klistra in bild"-knapp visas
+    /// HÄR bara när en AI-generator är vald källa (annars är den bara
     /// förvirrande brus för Google/Pinterest, där drag redan fungerar).
     private var webSearchPlaceholder: some View {
         ScrollView {
@@ -248,9 +274,9 @@ public struct ContentView: View {
                 Text("XtraPic")
                     .font(.title2.weight(.semibold))
 
-                if viewModel.searchEngine == .chatGPT {
+                if case .generator(let generator) = viewModel.searchEngine {
                     VStack(spacing: 6) {
-                        Text(L("Skriv en bildbeskrivning ovan och tryck på förstoringsglaset - ChatGPT öppnas i webbläsaren. Kräver att du är inloggad. Sidan stödjer tyvärr inte drag för bilder - högerklicka bilden, välj \"Kopiera bild\", och klistra in den nedan."))
+                        Text(generatorInstructionText(for: generator))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)

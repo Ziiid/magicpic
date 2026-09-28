@@ -3,8 +3,10 @@ import SwiftUI
 @MainActor
 public final class SearchViewModel: ObservableObject {
     @Published public var query: String = ""
-    @Published public var sourceKind: ImageSourceKind = .web
-    @Published public var searchEngine: WebSearchEngine = .google
+    // "Egen bild" är default, inte "Webb/AI" - de flesta öppnar appen för
+    // att redigera en bild de redan har, inte för att söka/generera en ny.
+    @Published public var sourceKind: ImageSourceKind = .ownImage
+    @Published public var searchEngine: ImageSource = .engine(.google)
     @Published public var errorMessage: String?
 
     @Published public var selectedItem: SearchResultItem?
@@ -16,6 +18,16 @@ public final class SearchViewModel: ObservableObject {
     // ut som att bakgrunden "kommer tillbaka" så fort man börjar justera
     // positionen (rapporterat 2026-09-25).
     @Published public var compositedImage: PlatformImage?
+    // Motivet urklippt mot en GENOMSKINLIG bakgrund (aldrig `backgroundStyle`,
+    // oavsett vad den är satt till), i originalbildens egen storlek - det
+    // som faktiskt panoreras/zoomas/roteras i `SubjectFramingCanvas`, se
+    // `applyPipeline`s dokumentation för varför. Hålls isär från
+    // `compositedImage` (som har VALD bakgrund bakad in över HELA
+    // originalrektangeln) eftersom den inte kan panoreras fritt utan att
+    // bakgrunden följer med och lämnar tomrum där rektangeln inte längre
+    // täcker kanvasen (se `buggs.md`) - `SubjectFramingCanvas` ritar därför
+    // ett separat, fast bakgrundslager BAKOM den här bilden istället.
+    @Published public var subjectCutoutImage: PlatformImage?
     @Published public var processedImage: PlatformImage?
     // Originalet med `photoFilter` + `imageAdjustments` tillämpade, men
     // INNAN Vision/bakgrund/form - ren, billig CoreImage-förhandsvisning
@@ -30,8 +42,11 @@ public final class SearchViewModel: ObservableObject {
     // Kvadrat, inte rektangel, är standard - annars finns ingen ram att
     // dra/zooma/vrida motivet inom direkt när bilden laddats in (se
     // `SubjectFramingCanvas` i DetailPanel.swift, verksam omedelbart, inte
-    // gated bakom att välja bort bakgrund/byta bakgrund).
-    @Published public var outputShape: OutputShape = .square
+    // gated bakom att välja bort bakgrund/byta bakgrund). `ShapePreset`
+    // bär BÅDE formens siluett (`.contour`, motsvarande gamla `OutputShape`)
+    // OCH ett valfritt bildförhållande/exportpixelmål (praktiska genvägar
+    // som "LinkedIn-profil") - se `ShapePreset`s egen dokumentation.
+    @Published public var shapePreset: ShapePreset = .square
     @Published public var outputShapeTransform: CanvasTransform = .identity
     @Published public var backgroundPositioningRequest: BackgroundPositioningRequest?
     @Published public var maskEditingRequest: MaskEditingRequest?
@@ -86,7 +101,7 @@ public final class SearchViewModel: ObservableObject {
         let backgroundStyle: BackgroundOption
         let photoFilter: PhotoFilter
         let imageAdjustments: ImageAdjustments
-        let outputShape: OutputShape
+        let shapePreset: ShapePreset
         let outputShapeTransform: CanvasTransform
         let selectedSubjectIDs: Set<Int>?
         let cachedMask: BackgroundRemovalService.ForegroundMask?
@@ -161,7 +176,7 @@ public final class SearchViewModel: ObservableObject {
     public func webSearchURL() -> URL? {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return searchEngine.searchURL(for: trimmed)
+        return searchEngine.url(for: trimmed)
     }
 
     /// Färgen motiv-overlayerna målas med i motivväljaren - markerar VALDA
@@ -269,7 +284,9 @@ public final class SearchViewModel: ObservableObject {
     /// från huvudtråden (`Task.detached`) eftersom kompositering/beskärning
     /// går via CoreImage, precis som tidigare.
     ///
-    /// Ordningen är MEDVETET `colorLook` → bakgrund → form → `layoutWrap`,
+    /// Ordningen är MEDVETET `colorLook` → urklipp (genomskinlig bakgrund) →
+    /// positionera urklippet i kanvasen → rendera bakgrunden I KANVASENS
+    /// storlek → lägg urklippet ÖVER bakgrunden → formsiluett → `layoutWrap`,
     /// INTE `apply` (look+layout ihop) rakt av som i `refreshEditPreview()`s
     /// mask-fria förhandsvisning - Polaroid/Fotoautomats ram/remsa gör
     /// bilden STÖRRE än originalet, och Visions `mask` är beräknad för
@@ -281,9 +298,16 @@ public final class SearchViewModel: ObservableObject {
     /// bakgrundsbytt och formbeskuret, blir varje Fotoautomat-ruta/Polaroid-
     /// foto exakt det användaren redan positionerat. För alla andra (rena
     /// färg-)filter är `layoutWrap` en no-op, så deras beteende är oförändrat.
+    ///
+    /// Bakgrunden komponeras MEDVETET separat, i SLUTKANVASENS storlek -
+    /// inte genom att bakgrundslägga mot hela originalbilden och sedan
+    /// formbeskära/positionera DEN (tidigare ordning) - annars fyller en
+    /// vald bakgrundsfärg bara den positionerade bildens EGNA gränser
+    /// istället för hela kanvasen, och lämnar checkerboard i resten så fort
+    /// motivet panorerats så en kant av kanvasen exponeras (se `buggs.md`).
     private func applyPipeline(mask: BackgroundRemovalService.ForegroundMask, original: PlatformImage) {
         let style = backgroundStyle.serviceStyle
-        let shape = outputShape
+        let preset = shapePreset
         let shapeTransform = outputShapeTransform
         let filter = photoFilter
         let adjustments = imageAdjustments
@@ -295,11 +319,41 @@ public final class SearchViewModel: ObservableObject {
             do {
                 let looked = try photoFilterService.colorLook(filter, to: original)
                 let adjustedCG = try imageAdjustment.apply(adjustments, to: looked).cgImageRepresentation
+                let referenceImage = adjustedCG ?? mask.original
+
+                // Motivet, urklippt mot en GENOMSKINLIG bakgrund - det som
+                // panoreras i `SubjectFramingCanvas` (se `subjectCutoutImage`s
+                // dokumentation) OCH det som positioneras i kanvasen nedan.
+                let cutout = try backgroundRemoval.composite(mask, background: .transparent, foregroundImage: adjustedCG)
+
+                // Positionera/beskär URKLIPPET (inte hela bilden) i kanvasen -
+                // `allowsExposedEdges: true` (redan satt i `ShapeCropService`)
+                // släpper igenom genomskinlighet både från själva urklippet
+                // OCH från att panorera det utanför kanvasen.
+                let positionedSubject = try shapeCrop.positioned(preset, image: cutout, transform: shapeTransform)
+
+                // Bakgrunden renderas separat, i SLUTKANVASENS storlek
+                // (`positionedSubject.size` - alltid samma som `preset`s
+                // `canvasSize`) - inte originalbildens - så den fyller HELA
+                // kanvasen oavsett var motivet råkar vara positionerat.
+                let canvasBackground = try backgroundRemoval.backgroundFill(style, referenceImage: referenceImage, canvasSize: positionedSubject.size)
+                let canvasComposite = try backgroundRemoval.compositeOverCanvas(subject: positionedSubject, backgroundFill: canvasBackground)
+
+                // Fortfarande VALD bakgrund bakad in över HELA originalets
+                // rektangel (inte kanvasen) - se `compositedImage`s
+                // dokumentation för varför `ShapePickerView` fortfarande
+                // behöver den formen.
                 let composited = try backgroundRemoval.composite(mask, background: style, foregroundImage: adjustedCG)
-                let shaped = try shapeCrop.apply(shape, to: composited, transform: shapeTransform)
-                let final = try photoFilterService.layoutWrap(filter, wrapping: shaped)
+
+                let shaped = try shapeCrop.applyingSilhouette(preset.contour, to: canvasComposite)
+                // Praktiska genvägar (t.ex. "Instagram-inlägg") tvingar EXAKT
+                // exportpixelmått - `nil` (de generiska formerna) lämnar
+                // storleken oförändrad, precis som innan `ShapePreset` fanns.
+                let sized = preset.pixelSize.map { shaped.resized(to: $0) } ?? shaped
+                let final = try photoFilterService.layoutWrap(filter, wrapping: sized)
                 await MainActor.run {
                     guard generation == self.backgroundGeneration else { return }
+                    self.subjectCutoutImage = cutout
                     self.compositedImage = composited
                     self.processedImage = final
                     self.isProcessing = false
@@ -417,11 +471,12 @@ public final class SearchViewModel: ObservableObject {
         adjustmentGeneration += 1
         processedImage = nil
         compositedImage = nil
+        subjectCutoutImage = nil
         adjustedPreviewImage = nil
         backgroundStyle = .transparent
         photoFilter = .none
         imageAdjustments = .identity
-        outputShape = .square
+        shapePreset = .square
         outputShapeTransform = .identity
         lastCommittedTransform = .identity
         isProcessing = false
@@ -513,26 +568,27 @@ public final class SearchViewModel: ObservableObject {
         }
     }
 
-    /// Byter slutbildens form (kvadrat/cirkel/hexagon/...). `SubjectFramingCanvas`
-    /// klipper redan visuellt till den nya formen direkt via bindningen till
-    /// `outputShape` (samma mekanism som `ManipulableImageView`s clipShape) -
-    /// till skillnad från t.ex. bakgrundsstil har formvalet alltså redan en
-    /// synlig effekt utan att någon riktig bearbetning körs. Kör därför bara
-    /// om `removeBackground()` villkorat av `if processedImage != nil` -
-    /// precis som `commitOutputShapeTransform` - annars skulle att bara
-    /// VÄLJA en form (t.ex. efter att ha justerat ljusstyrka/filter men
-    /// innan bakgrunden någonsin tagits bort) tyst trigga en riktig
-    /// Vision-körning med standardbakgrunden (genomskinlig), vilket
-    /// upplevdes som att "bakgrunden försvinner" bara av att välja form
-    /// (upptäckt 2026-09-25) - samma bugg som `commitOutputShapeTransform`
-    /// redan fixades för, fast för formmenyn istället för dra-gesten.
-    /// Positioneringen (pan/zoom) i `outputShapeTransform` behålls oförändrad
-    /// - den avser var i motivet formen läggs, inte formen själv.
-    public func setOutputShape(_ shape: OutputShape) {
-        if shape != outputShape {
+    /// Byter slutbildens form/preset (kvadrat/cirkel/LinkedIn-profil/...).
+    /// `SubjectFramingCanvas` klipper redan visuellt till den nya formen
+    /// direkt via bindningen till `shapePreset` (samma mekanism som
+    /// `ManipulableImageView`s clipShape) - till skillnad från t.ex.
+    /// bakgrundsstil har formvalet alltså redan en synlig effekt utan att
+    /// någon riktig bearbetning körs. Kör därför bara om `removeBackground()`
+    /// villkorat av `if processedImage != nil` - precis som
+    /// `commitOutputShapeTransform` - annars skulle att bara VÄLJA en form
+    /// (t.ex. efter att ha justerat ljusstyrka/filter men innan bakgrunden
+    /// någonsin tagits bort) tyst trigga en riktig Vision-körning med
+    /// standardbakgrunden (genomskinlig), vilket upplevdes som att
+    /// "bakgrunden försvinner" bara av att välja form (upptäckt 2026-09-25)
+    /// - samma bugg som `commitOutputShapeTransform` redan fixades för,
+    /// fast för formmenyn istället för dra-gesten. Positioneringen
+    /// (pan/zoom) i `outputShapeTransform` behålls oförändrad - den avser
+    /// var i motivet formen läggs, inte formen själv.
+    public func setShapePreset(_ preset: ShapePreset) {
+        if preset != shapePreset {
             pushUndoSnapshot()
         }
-        outputShape = shape
+        shapePreset = preset
         if processedImage != nil {
             removeBackground()
         }
@@ -542,7 +598,7 @@ public final class SearchViewModel: ObservableObject {
     /// inbäddade formramningen (`SubjectFramingCanvas`) - `outputShapeTransform`
     /// är redan uppdaterad via bindningen dit. Körs BARA om bearbetning
     /// redan skett minst en gång tidigare (till skillnad från
-    /// `setBackgroundStyle`/`setOutputShape`, som alltid kör om) - annars
+    /// `setBackgroundStyle`/`setShapePreset`, som alltid kör om) - annars
     /// skulle bara det att panorera/zooma/rotera för att komponera bilden,
     /// INNAN man bett om bakgrundsborttagning över huvud taget, tyst
     /// trigga en riktig Vision-körning med standardbakgrunden
@@ -647,11 +703,12 @@ public final class SearchViewModel: ObservableObject {
         originalImage = image
         processedImage = nil
         compositedImage = nil
+        subjectCutoutImage = nil
         adjustedPreviewImage = nil
         backgroundStyle = .transparent
         photoFilter = .none
         imageAdjustments = .identity
-        outputShape = .square
+        shapePreset = .square
         outputShapeTransform = .identity
         errorMessage = nil
         isLoadingDetail = false
@@ -772,7 +829,7 @@ public final class SearchViewModel: ObservableObject {
             backgroundStyle: backgroundStyle,
             photoFilter: photoFilter,
             imageAdjustments: imageAdjustments,
-            outputShape: outputShape,
+            shapePreset: shapePreset,
             outputShapeTransform: outputShapeTransform,
             selectedSubjectIDs: selectedSubjectIDs,
             cachedMask: cachedMask
@@ -810,7 +867,7 @@ public final class SearchViewModel: ObservableObject {
             backgroundStyle: current.backgroundStyle,
             photoFilter: current.photoFilter,
             imageAdjustments: current.imageAdjustments,
-            outputShape: current.outputShape,
+            shapePreset: current.shapePreset,
             outputShapeTransform: transform,
             selectedSubjectIDs: current.selectedSubjectIDs,
             cachedMask: current.cachedMask
@@ -857,7 +914,7 @@ public final class SearchViewModel: ObservableObject {
         backgroundStyle = snapshot.backgroundStyle
         photoFilter = snapshot.photoFilter
         imageAdjustments = snapshot.imageAdjustments
-        outputShape = snapshot.outputShape
+        shapePreset = snapshot.shapePreset
         outputShapeTransform = snapshot.outputShapeTransform
         lastCommittedTransform = snapshot.outputShapeTransform
         selectedSubjectIDs = snapshot.selectedSubjectIDs
@@ -877,6 +934,7 @@ public final class SearchViewModel: ObservableObject {
             cachedMaskSource = nil
             processedImage = nil
             compositedImage = nil
+            subjectCutoutImage = nil
             isProcessing = false
             // `refreshEditPreview()` uppdaterar `shareURL` själv numera när
             // dess async-beräkning blir klar - se dess dokumentationskommentar.

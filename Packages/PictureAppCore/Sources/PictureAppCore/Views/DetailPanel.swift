@@ -35,20 +35,22 @@ struct DetailPanel: View {
                 } else if let original = viewModel.originalImage {
                     // Alltid den inbäddade, dra-/nyp-/vridbara ramningsytan -
                     // inget separat "justera position"-läge att växla till.
-                    // Källan är den bakgrundskompositerade bilden när den
-                    // finns (så vald bakgrund syns medan man justerar,
-                    // istället för att se ut som att bakgrunden "kommer
-                    // tillbaka"), annars det obehandlade originalet. OBS:
-                    // `compositedImage` är ALDRIG den Polaroid-/fotoautomat-
-                    // inramade bilden (se `SearchViewModel.applyPipeline`s
-                    // dokumentation) - bara motivet, bakgrundsbytt men INTE
-                    // ännu formbeskuret/inramat - så den passar fint här även
-                    // när en lager-stil är vald.
+                    // Källan är motivets GENOMSKINLIGA urklipp när det finns
+                    // (`subjectCutoutImage`), annars det obehandlade
+                    // originalet - INTE `compositedImage` (som har vald
+                    // bakgrund bakad in över hela originalets rektangel).
+                    // `SubjectFramingCanvas` ritar istället vald bakgrund
+                    // som ett eget, FAST lager bakom urklippet, så bakgrunden
+                    // fyller hela kanvasen oavsett var urklippet panorerats -
+                    // se `SearchViewModel.applyPipeline`s och
+                    // `subjectCutoutImage`s dokumentation, samt `buggs.md`.
                     VStack(spacing: 8) {
                         SubjectFramingCanvas(
-                            image: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
-                            shape: viewModel.outputShape,
-                            aspectRatio: viewModel.outputShape == .rectangle ? previewAspectRatio : 1,
+                            image: viewModel.subjectCutoutImage ?? viewModel.adjustedPreviewImage ?? original,
+                            shape: viewModel.shapePreset.contour,
+                            aspectRatio: viewModel.shapePreset.aspectRatio ?? previewAspectRatio,
+                            backgroundStyle: viewModel.backgroundStyle,
+                            originalImage: original,
                             transform: $viewModel.outputShapeTransform,
                             onCommit: { viewModel.commitOutputShapeTransform() }
                         )
@@ -291,8 +293,8 @@ struct DetailPanel: View {
                 ShapePickerView(
                     baseImage: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
                     transform: viewModel.outputShapeTransform,
-                    currentShape: viewModel.outputShape,
-                    onSelect: { viewModel.setOutputShape($0) },
+                    currentPreset: viewModel.shapePreset,
+                    onSelect: { viewModel.setShapePreset($0) },
                     onDone: { showShapePicker = false }
                 )
             }
@@ -342,7 +344,7 @@ struct DetailPanel: View {
             || viewModel.compositedImage != nil
             || viewModel.outputShapeTransform != .identity
             || viewModel.backgroundStyle != .transparent
-            || viewModel.outputShape != .square
+            || viewModel.shapePreset != .square
             || viewModel.photoFilter != .none
             || viewModel.imageAdjustments != .identity
     }
@@ -466,21 +468,60 @@ struct DetailPanel: View {
 
 /// Motivets ramning: dra/zooma/vrida är verksamt direkt när bilden laddats
 /// in, inte gated bakom att välja bort bakgrund/byta bakgrund - se
-/// `SearchViewModel.outputShape`s standardvärde (`.square`, inte
+/// `SearchViewModel.shapePreset`s standardvärde (`.square`, inte
 /// `.rectangle`) för varför det alltid finns en ram att positionera inom
 /// från start.
 private struct SubjectFramingCanvas: View {
     let image: PlatformImage
     let shape: OutputShape
     let aspectRatio: CGFloat
+    let backgroundStyle: BackgroundOption
+    let originalImage: PlatformImage
     @Binding var transform: CanvasTransform
     let onCommit: () -> Void
 
     var body: some View {
-        ManipulableImageView(image: image, clipShape: shape.swiftUIShape, transform: $transform, onCommit: onCommit)
+        ManipulableImageView(image: image, clipShape: shape.swiftUIShape, transform: $transform, onCommit: onCommit, allowsExposedEdges: true)
             .aspectRatio(aspectRatio, contentMode: .fit)
-            .background(CheckerboardBackground())
+            .background(backgroundLayer)
             .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Ett FAST bakgrundslager bakom urklippet - flyttas ALDRIG av
+    /// `transform` (till skillnad från `image` ovan), så vald bakgrund
+    /// fyller hela kanvasen oavsett var motivet panorerats. Bara en
+    /// förhandsvisning - `oskärpa`/`egen bild` approximeras med SwiftUIs
+    /// egna, billiga verktyg (`.blur`/enkla transform-modifiers) istället
+    /// för att köra CoreImage-pipelinen på varje ritad bildruta; den
+    /// FAKTISKA exporten renderas alltid via `BackgroundRemovalService`
+    /// (se `SearchViewModel.applyPipeline`), så den här approximationen
+    /// påverkar bara hur förhandsvisningen ser ut medan man panorerar.
+    @ViewBuilder
+    private var backgroundLayer: some View {
+        switch backgroundStyle {
+        case .transparent:
+            CheckerboardBackground()
+        case .color(let color):
+            color
+        case .blurredOriginal:
+            Image(platformImage: originalImage)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .blur(radius: 20)
+        case .custom(let customImage, let bgTransform):
+            GeometryReader { geo in
+                let containerSize = geo.size
+                Image(platformImage: customImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: containerSize.width, height: containerSize.height)
+                    .scaleEffect(max(bgTransform.scale, CanvasTransform.minScale))
+                    .rotationEffect(bgTransform.rotation)
+                    .offset(x: bgTransform.offset.width * containerSize.width, y: bgTransform.offset.height * containerSize.height)
+                    .frame(width: containerSize.width, height: containerSize.height)
+                    .clipped()
+            }
+        }
     }
 }
 
