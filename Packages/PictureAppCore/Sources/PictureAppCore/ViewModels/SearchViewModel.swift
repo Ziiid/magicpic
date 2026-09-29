@@ -51,8 +51,11 @@ public final class SearchViewModel: ObservableObject {
     /// Texten som ligger ovanpå bilden (`nil` = ingen). Ändras LIVE via
     /// bindningar i `DetailPanel` (dra/skriva) utan att köra pipelinen -
     /// själva förhandsvisningen är ett SwiftUI-lager - och "committas" först
-    /// när en gest/redigeringsrutan avslutas, se `commitTextOverlay()`.
+    /// när en gest/redigeringsrutan avslutas, se `commitOverlays()`.
     @Published public var textOverlay: TextOverlay?
+    /// Logotypen/bilden som ligger ovanpå (under texten) - samma live-/commit-
+    /// modell som `textOverlay`, se `commitOverlays()`.
+    @Published public var logoOverlay: LogoOverlay?
     @Published public var backgroundPositioningRequest: BackgroundPositioningRequest?
     @Published public var maskEditingRequest: MaskEditingRequest?
     @Published public var subjectSelectionRequest: SubjectSelectionRequest?
@@ -109,6 +112,7 @@ public final class SearchViewModel: ObservableObject {
         let shapePreset: ShapePreset
         var outputShapeTransform: CanvasTransform
         var textOverlay: TextOverlay?
+        var logoOverlay: LogoOverlay?
         let selectedSubjectIDs: Set<Int>?
         let cachedMask: BackgroundRemovalService.ForegroundMask?
     }
@@ -119,6 +123,7 @@ public final class SearchViewModel: ObservableObject {
     private let imageAdjustment = ImageAdjustmentService()
     private let photoFilterService = PhotoFilterService()
     private let textOverlayService = TextOverlayService()
+    private let logoOverlayService = LogoOverlayService()
     // Ökas för varje refreshEditPreview()-anrop så att en sen, ren
     // förhandsvisningskörning (utan Vision) inte skriver över en nyare -
     // samma mönster som `backgroundGeneration`.
@@ -164,8 +169,9 @@ public final class SearchViewModel: ObservableObject {
     // ens anropas. Uppdateras varje gång transformen sätts på något annat
     // sätt också (nollställning, undo/redo) så den aldrig blir inaktuell.
     private var lastCommittedTransform: CanvasTransform = .identity
-    // Motsvarande för `textOverlay` - se `commitTextOverlay()`.
+    // Motsvarande för `textOverlay` - se `commitOverlays()`.
     private var lastCommittedTextOverlay: TextOverlay?
+    private var lastCommittedLogoOverlay: LogoOverlay?
     // Ökas för varje `refreshShareURL()` så ett sent svar från en äldre
     // (nu bakgrundskörd) delningsfil inte skriver över en nyare.
     private var shareGeneration = 0
@@ -324,11 +330,12 @@ public final class SearchViewModel: ObservableObject {
         let filter = photoFilter
         let adjustments = imageAdjustments
         let overlay = textOverlay
+        let logo = logoOverlay
 
         backgroundGeneration += 1
         let generation = backgroundGeneration
 
-        Task.detached(priority: .userInitiated) { [backgroundRemoval, shapeCrop, photoFilterService, imageAdjustment, textOverlayService] in
+        Task.detached(priority: .userInitiated) { [backgroundRemoval, shapeCrop, photoFilterService, imageAdjustment, textOverlayService, logoOverlayService] in
             do {
                 let looked = try photoFilterService.colorLook(filter, to: original)
                 let adjustedCG = try imageAdjustment.apply(adjustments, to: looked).cgImageRepresentation
@@ -358,9 +365,10 @@ public final class SearchViewModel: ObservableObject {
                 // behöver den formen.
                 let composited = try backgroundRemoval.composite(mask, background: style, foregroundImage: adjustedCG)
 
-                // Texten ritas på den färdiga kompositen FÖRE siluetten, så den
-                // klipps av formen precis som motiv och bakgrund.
-                let withText = overlay.map { textOverlayService.apply($0, to: canvasComposite) } ?? canvasComposite
+                // Logotypen och texten (i den ordningen - texten överst) ritas på
+                // den färdiga kompositen FÖRE siluetten, så de klipps av formen
+                // precis som motiv och bakgrund.
+                let withText = Self.applyOverlays(logo: logo, text: overlay, to: canvasComposite, logoService: logoOverlayService, textService: textOverlayService)
                 let shaped = try shapeCrop.applyingSilhouette(preset.contour, to: withText)
                 // Praktiska genvägar (t.ex. "Instagram-inlägg") tvingar EXAKT
                 // exportpixelmått - `nil` (de generiska formerna) lämnar
@@ -497,6 +505,8 @@ public final class SearchViewModel: ObservableObject {
         lastCommittedTransform = .identity
         textOverlay = nil
         lastCommittedTextOverlay = nil
+        logoOverlay = nil
+        lastCommittedLogoOverlay = nil
         isProcessing = false
         errorMessage = nil
         // Kasta motivvalet och den (ev. pensel-redigerade) färdiga masken -
@@ -643,7 +653,7 @@ public final class SearchViewModel: ObservableObject {
     }
 
     /// Skapar en standardtext om ingen finns än (utan att pusha något
-    /// undo-steg - det görs först av `commitTextOverlay()` när
+    /// undo-steg - det görs först av `commitOverlays()` när
     /// redigeringen avslutas, så att "lägg till + skriv" blir ETT steg).
     public func ensureTextOverlay() {
         if textOverlay == nil {
@@ -651,28 +661,57 @@ public final class SearchViewModel: ObservableObject {
         }
     }
 
-    /// Anropas när en dra-/nyp-/vridgest på texten släpps eller när
-    /// textredigeraren stängs - bakar in texten i exportbilden och pushar
-    /// ETT undo-steg med `lastCommittedTextOverlay` som "innan"-läge (samma
-    /// mönster som `commitOutputShapeTransform()`; bindningen har redan
-    /// skrivit det nya värdet). En tom text räknas som "ingen text". Flera
-    /// anrop i rad för samma gest är ofarliga - den andra ser ingen skillnad.
-    public func commitTextOverlay() {
+    /// Anropas när en dra-/nyp-/vridgest på texten eller logotypen släpps,
+    /// eller när textredigeraren stängs - bakar in dem i exportbilden och
+    /// pushar ETT undo-steg med `lastCommitted…` som "innan"-läge (samma
+    /// mönster som `commitOutputShapeTransform()`; bindningarna har redan
+    /// skrivit de nya värdena). En tom text räknas som "ingen text". Flera
+    /// anrop i rad för samma gest är ofarliga - de följande ser ingen skillnad.
+    public func commitOverlays() {
         if let overlay = textOverlay, !overlay.hasContent {
             textOverlay = nil
         }
-        guard textOverlay != lastCommittedTextOverlay else { return }
+        guard textOverlay != lastCommittedTextOverlay || logoOverlay != lastCommittedLogoOverlay else { return }
         var before = currentSnapshot()
         before.textOverlay = lastCommittedTextOverlay
+        before.logoOverlay = lastCommittedLogoOverlay
         undoStack.append(before)
         redoStack.removeAll()
         updateUndoRedoAvailability()
         lastCommittedTextOverlay = textOverlay
+        lastCommittedLogoOverlay = logoOverlay
         if processedImage != nil {
             removeBackground()
         } else {
             refreshShareURL()
         }
+    }
+
+    /// Läser in en bildfil som logotyp (via filväljaren i `DetailPanel`).
+    /// Finns redan en logotyp byts bara bilden ut - placering, storlek och
+    /// vridning behålls. PNG med genomskinlighet bevaras.
+    public func setLogo(from url: URL) async {
+        do {
+            let image = try await Self.loadImage(from: url)
+            if var existing = logoOverlay {
+                existing.image = image
+                logoOverlay = existing
+            } else {
+                logoOverlay = LogoOverlay(image: image)
+            }
+            commitOverlays()
+        } catch {
+            // Prefix lokaliserat för sig, felet konkatenerat EFTER - se
+            // `setCustomBackground(from:)`.
+            let prefix = String(localized: "Kunde inte läsa logotypen:", bundle: .module, locale: AppLanguage.current.locale)
+            errorMessage = "\(prefix) \(error.localizedDescription)"
+        }
+    }
+
+    /// Tar bort logotypen (✕ på markeringsramen).
+    public func removeLogo() {
+        logoOverlay = nil
+        commitOverlays()
     }
 
     /// Zoomar motivet i formramningen ett steg (`factor` > 1 = in, < 1 = ut)
@@ -819,6 +858,8 @@ public final class SearchViewModel: ObservableObject {
         lastCommittedTransform = .identity
         textOverlay = nil
         lastCommittedTextOverlay = nil
+        logoOverlay = nil
+        lastCommittedLogoOverlay = nil
         updateUndoRedoAvailability()
         refreshShareURL()
     }
@@ -855,27 +896,44 @@ public final class SearchViewModel: ObservableObject {
     public var currentExportImage: PlatformImage? {
         if let processedImage { return processedImage }
         let base = adjustedPreviewImage ?? originalImage
-        guard let base, let overlay = textOverlay, overlay.hasContent else { return base }
-        return Self.framedWithText(overlay, on: base, preset: shapePreset, transform: outputShapeTransform, shapeCrop: shapeCrop, textOverlayService: textOverlayService)
+        let text = textOverlay?.hasContent == true ? textOverlay : nil
+        guard let base, text != nil || logoOverlay != nil else { return base }
+        return Self.framedWithOverlays(logo: logoOverlay, text: text, on: base, preset: shapePreset, transform: outputShapeTransform, shapeCrop: shapeCrop, logoService: logoOverlayService, textService: textOverlayService)
     }
 
-    /// Exportbild när en text finns men bakgrundsborttagning aldrig körts
-    /// (`processedImage == nil`): texten är placerad relativt FORMENS kanvas
-    /// (det man ser i `SubjectFramingCanvas`), så bilden måste beskäras till
-    /// den kanvasen först - annars skulle texten hamna på fel ställe i den
-    /// obeskurna originalbilden. Samma ordning som `applyPipeline`: position
-    /// → text → siluett → exportmått.
-    nonisolated private static func framedWithText(
-        _ overlay: TextOverlay,
+    /// Ritar logotyp (först) och text (överst) på `image`.
+    nonisolated private static func applyOverlays(
+        logo: LogoOverlay?,
+        text: TextOverlay?,
+        to image: PlatformImage,
+        logoService: LogoOverlayService,
+        textService: TextOverlayService
+    ) -> PlatformImage {
+        var result = image
+        if let logo { result = logoService.apply(logo, to: result) }
+        if let text { result = textService.apply(text, to: result) }
+        return result
+    }
+
+    /// Exportbild när en text/logotyp finns men bakgrundsborttagning aldrig
+    /// körts (`processedImage == nil`): de är placerade relativt FORMENS
+    /// kanvas (det man ser i `SubjectFramingCanvas`), så bilden måste
+    /// beskäras till den kanvasen först - annars skulle de hamna på fel
+    /// ställe i den obeskurna originalbilden. Samma ordning som
+    /// `applyPipeline`: position → logotyp/text → siluett → exportmått.
+    nonisolated private static func framedWithOverlays(
+        logo: LogoOverlay?,
+        text: TextOverlay?,
         on base: PlatformImage,
         preset: ShapePreset,
         transform: CanvasTransform,
         shapeCrop: ShapeCropService,
-        textOverlayService: TextOverlayService
+        logoService: LogoOverlayService,
+        textService: TextOverlayService
     ) -> PlatformImage {
         guard let positioned = try? shapeCrop.positioned(preset, image: base, transform: transform) else { return base }
-        let withText = textOverlayService.apply(overlay, to: positioned)
-        guard let shaped = try? shapeCrop.applyingSilhouette(preset.contour, to: withText) else { return withText }
+        let withOverlays = applyOverlays(logo: logo, text: text, to: positioned, logoService: logoService, textService: textService)
+        guard let shaped = try? shapeCrop.applyingSilhouette(preset.contour, to: withOverlays) else { return withOverlays }
         return preset.pixelSize.map { shaped.resized(to: $0) } ?? shaped
     }
 
@@ -926,7 +984,8 @@ public final class SearchViewModel: ObservableObject {
         let format = exportFormat
         let processed = processedImage
         let base = adjustedPreviewImage ?? originalImage
-        let overlay = textOverlay
+        let overlay = textOverlay?.hasContent == true ? textOverlay : nil
+        let logo = logoOverlay
         let preset = shapePreset
         let transform = outputShapeTransform
 
@@ -935,12 +994,12 @@ public final class SearchViewModel: ObservableObject {
         // full upplösnings-bild är för tungt för huvudtråden - gjorde
         // dra-/nyp-/vridgester på bilden och texten trögga eftersom varje
         // släpp ledde hit. `shareGeneration` kastar ett för gammalt svar.
-        Task.detached(priority: .utility) { [shapeCrop, textOverlayService] in
+        Task.detached(priority: .utility) { [shapeCrop, textOverlayService, logoOverlayService] in
             let image: PlatformImage?
             if let processed {
                 image = processed
-            } else if let base, let overlay, overlay.hasContent {
-                image = Self.framedWithText(overlay, on: base, preset: preset, transform: transform, shapeCrop: shapeCrop, textOverlayService: textOverlayService)
+            } else if let base, overlay != nil || logo != nil {
+                image = Self.framedWithOverlays(logo: logo, text: overlay, on: base, preset: preset, transform: transform, shapeCrop: shapeCrop, logoService: logoOverlayService, textService: textOverlayService)
             } else {
                 image = base
             }
@@ -968,6 +1027,7 @@ public final class SearchViewModel: ObservableObject {
             shapePreset: shapePreset,
             outputShapeTransform: outputShapeTransform,
             textOverlay: textOverlay,
+            logoOverlay: logoOverlay,
             selectedSubjectIDs: selectedSubjectIDs,
             cachedMask: cachedMask
         )
@@ -1049,6 +1109,8 @@ public final class SearchViewModel: ObservableObject {
         lastCommittedTransform = snapshot.outputShapeTransform
         textOverlay = snapshot.textOverlay
         lastCommittedTextOverlay = snapshot.textOverlay
+        logoOverlay = snapshot.logoOverlay
+        lastCommittedLogoOverlay = snapshot.logoOverlay
         selectedSubjectIDs = snapshot.selectedSubjectIDs
         cachedMask = snapshot.cachedMask
         errorMessage = nil

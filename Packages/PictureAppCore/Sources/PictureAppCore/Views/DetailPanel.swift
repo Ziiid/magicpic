@@ -10,8 +10,26 @@ struct DetailPanel: View {
     @State private var showBackgroundStylePicker = false
     @State private var showShapePicker = false
     @State private var showTextEditor = false
+    @State private var showLogoImporter = false
 
+    // `body` är uppdelad i tre kedjor (innehåll → händelsehanterare →
+    // sheets) - EN enda kedja med ~20 modifierare (sju sheets, fem
+    // `onChange`, två `fileImporter`) blev för tung för typkontrollen
+    // ("unable to type-check this expression in reasonable time").
     var body: some View {
+        sheetedContent
+            .sheet(isPresented: $showBackgroundStylePicker) {
+                backgroundStyleSheet
+            }
+            .sheet(isPresented: $showShapePicker) {
+                shapeSheet
+            }
+            .sheet(isPresented: $showColorPicker) {
+                colorSheet
+            }
+    }
+
+    private var baseContent: some View {
         VStack(spacing: 12) {
             ScrollView {
                 if viewModel.isLoadingDetail {
@@ -54,13 +72,15 @@ struct DetailPanel: View {
                             originalImage: original,
                             transform: $viewModel.outputShapeTransform,
                             textOverlay: $viewModel.textOverlay,
+                            logoOverlay: $viewModel.logoOverlay,
                             onCommit: { viewModel.commitOutputShapeTransform() },
-                            onTextCommit: { viewModel.commitTextOverlay() },
+                            onOverlayCommit: { viewModel.commitOverlays() },
                             onTextEdit: { if !showTextEditor { showTextEditor = true } },
                             onTextDelete: {
                                 viewModel.textOverlay = nil
-                                viewModel.commitTextOverlay()
-                            }
+                                viewModel.commitOverlays()
+                            },
+                            onLogoDelete: { viewModel.removeLogo() }
                         )
                         .padding()
 
@@ -203,6 +223,15 @@ struct DetailPanel: View {
                     .help(L("Lägg till en text som du kan flytta, ändra storlek på och vrida."))
 
                     Button {
+                        showLogoImporter = true
+                    } label: {
+                        Label(L("Logo"), systemImage: "photo.badge.plus")
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .disabled(viewModel.originalImage == nil)
+                    .help(L("Lägg på en logotyp eller bild som du kan flytta, ändra storlek på, vrida och spegelvända."))
+
+                    Button {
                         showAdjustments = true
                     } label: {
                         Label(L("Justera"), systemImage: "slider.horizontal.3")
@@ -245,6 +274,10 @@ struct DetailPanel: View {
             .padding(.bottom, 12)
         }
         .frame(maxHeight: .infinity)
+    }
+
+    private var handledContent: some View {
+        baseContent
         // Justera- och Filter-panelerna tillåter FLERA ändringar (varje
         // reglageutslag/filtertryck) innan man stänger - de ska bli ETT
         // enda undo-steg för hela sessionen, inte ett steg VAR. `onChange`
@@ -273,7 +306,7 @@ struct DetailPanel: View {
         }
         .onChange(of: showTextEditor) { _, isPresented in
             if !isPresented {
-                viewModel.commitTextOverlay()
+                viewModel.commitOverlays()
             }
         }
         .sheet(isPresented: $showTextEditor) {
@@ -303,6 +336,18 @@ struct DetailPanel: View {
                 viewModel.errorMessage = error.localizedDescription
             }
         }
+        .fileImporter(isPresented: $showLogoImporter, allowedContentTypes: [.image]) { result in
+            switch result {
+            case .success(let url):
+                Task { await viewModel.setLogo(from: url) }
+            case .failure(let error):
+                viewModel.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private var sheetedContent: some View {
+        handledContent
         .sheet(item: $viewModel.backgroundPositioningRequest) { request in
             ImagePositionerView(
                 title: L("Justera bakgrundsbilden"),
@@ -351,72 +396,75 @@ struct DetailPanel: View {
                 onCancel: { viewModel.cancelSubjectSelection() }
             )
         }
-        .sheet(isPresented: $showBackgroundStylePicker) {
-            if let original = viewModel.originalImage {
-                BackgroundStylePickerView(
-                    baseImage: original,
-                    currentStyle: viewModel.backgroundStyle,
-                    hasCustomBackground: hasCustomBackground,
-                    onSelect: { viewModel.setBackgroundStyle($0) },
-                    onPickCustomImage: {
-                        showBackgroundStylePicker = false
-                        showBackgroundImporter = true
-                    },
-                    onRepositionCustomImage: {
-                        showBackgroundStylePicker = false
-                        viewModel.beginRepositioningCustomBackground()
-                    },
-                    onPickMoreColors: {
-                        showBackgroundStylePicker = false
-                        showColorPicker = true
-                    },
-                    onDone: { showBackgroundStylePicker = false },
-                    loadPreviewMask: { await viewModel.previewMask() }
-                )
-            }
-        }
-        .sheet(isPresented: $showShapePicker) {
-            if let original = viewModel.originalImage {
-                ShapePickerView(
-                    baseImage: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
-                    transform: viewModel.outputShapeTransform,
-                    currentPreset: viewModel.shapePreset,
-                    onSelect: { viewModel.setShapePreset($0) },
-                    onDone: { showShapePicker = false }
-                )
-            }
-        }
-        // Bara "Fler färger…" (en godtycklig färg via systemets ColorPicker)
-        // kvar här - de förvalda färgerna visas nu som RIKTIGA
-        // förhandsgranskningar i `BackgroundStylePickerView`s eget rutnät
-        // istället för en dubblett-uppsättning cirklar här (rapporterat
-        // 2026-09-26).
-        .sheet(isPresented: $showColorPicker) {
-            VStack(spacing: 20) {
-                Text(L("Fler färger"))
-                    .font(.headline)
+    }
 
-                ColorPicker(
-                    L("Bakgrundsfärg"),
-                    selection: Binding(
-                        get: {
-                            if case .color(let color) = viewModel.backgroundStyle { return color }
-                            return .white
-                        },
-                        set: { viewModel.setBackgroundStyle(.color($0)) }
-                    ),
-                    supportsOpacity: false
-                )
-
-                HStack {
-                    Spacer()
-                    Button(L("Klart")) { showColorPicker = false }
-                        .keyboardShortcut(.defaultAction)
-                }
-            }
-            .padding(24)
-            .frame(minWidth: 320, minHeight: 160)
+    @ViewBuilder private var backgroundStyleSheet: some View {
+        if let original = viewModel.originalImage {
+            BackgroundStylePickerView(
+                baseImage: original,
+                currentStyle: viewModel.backgroundStyle,
+                hasCustomBackground: hasCustomBackground,
+                onSelect: { viewModel.setBackgroundStyle($0) },
+                onPickCustomImage: {
+                    showBackgroundStylePicker = false
+                    showBackgroundImporter = true
+                },
+                onRepositionCustomImage: {
+                    showBackgroundStylePicker = false
+                    viewModel.beginRepositioningCustomBackground()
+                },
+                onPickMoreColors: {
+                    showBackgroundStylePicker = false
+                    showColorPicker = true
+                },
+                onDone: { showBackgroundStylePicker = false },
+                loadPreviewMask: { await viewModel.previewMask() }
+            )
         }
+    }
+
+    @ViewBuilder private var shapeSheet: some View {
+        if let original = viewModel.originalImage {
+            ShapePickerView(
+                baseImage: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
+                transform: viewModel.outputShapeTransform,
+                currentPreset: viewModel.shapePreset,
+                onSelect: { viewModel.setShapePreset($0) },
+                onDone: { showShapePicker = false }
+            )
+        }
+    }
+
+    // Bara "Fler färger…" (en godtycklig färg via systemets ColorPicker)
+    // kvar här - de förvalda färgerna visas nu som RIKTIGA
+    // förhandsgranskningar i `BackgroundStylePickerView`s eget rutnät
+    // istället för en dubblett-uppsättning cirklar här (rapporterat
+    // 2026-09-26).
+    @ViewBuilder private var colorSheet: some View {
+        VStack(spacing: 20) {
+            Text(L("Fler färger"))
+                .font(.headline)
+
+            ColorPicker(
+                L("Bakgrundsfärg"),
+                selection: Binding(
+                    get: {
+                        if case .color(let color) = viewModel.backgroundStyle { return color }
+                        return .white
+                    },
+                    set: { viewModel.setBackgroundStyle(.color($0)) }
+                ),
+                supportsOpacity: false
+            )
+
+            HStack {
+                Spacer()
+                Button(L("Klart")) { showColorPicker = false }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 320, minHeight: 160)
     }
 
     private var previewAspectRatio: CGFloat {
@@ -434,6 +482,7 @@ struct DetailPanel: View {
             || viewModel.shapePreset != .square
             || viewModel.photoFilter != .none
             || viewModel.textOverlay != nil
+            || viewModel.logoOverlay != nil
             || viewModel.imageAdjustments != .identity
     }
 
@@ -567,12 +616,30 @@ private struct SubjectFramingCanvas: View {
     let originalImage: PlatformImage
     @Binding var transform: CanvasTransform
     @Binding var textOverlay: TextOverlay?
+    @Binding var logoOverlay: LogoOverlay?
     let onCommit: () -> Void
-    let onTextCommit: () -> Void
+    let onOverlayCommit: () -> Void
     let onTextEdit: () -> Void
     let onTextDelete: () -> Void
-    // Om texten är markerad (grön ram med handtag) - ny text markeras direkt.
-    @State private var isTextSelected = true
+    let onLogoDelete: () -> Void
+
+    private enum SelectedOverlay { case text, logo }
+    // Vilket lager (text/logotyp) som är markerat (grön ram med handtag) -
+    // högst ett åt gången. Ett nytt lager markeras direkt (se `onChange`).
+    @State private var selected: SelectedOverlay? = .text
+
+    private func isSelected(_ kind: SelectedOverlay) -> Binding<Bool> {
+        Binding(
+            get: { selected == kind },
+            set: { newValue in
+                if newValue {
+                    selected = kind
+                } else if selected == kind {
+                    selected = nil
+                }
+            }
+        )
+    }
 
     var body: some View {
         ManipulableImageView(image: image, clipShape: shape.swiftUIShape, transform: $transform, onCommit: onCommit, allowsExposedEdges: true)
@@ -580,26 +647,49 @@ private struct SubjectFramingCanvas: View {
             // sina egna tryck, se `TextOverlayLayer`).
             // `simultaneousGesture` (inte `onTapGesture`) så tryckigenkänningen
             // aldrig kan fördröja/blockera dra-/nyp-/vridgesten på motivet.
-            .simultaneousGesture(TapGesture().onEnded { isTextSelected = false })
+            .simultaneousGesture(TapGesture().onEnded { selected = nil })
             .aspectRatio(aspectRatio, contentMode: .fit)
             .overlay {
                 GeometryReader { geo in
-                    if let overlayBinding = Binding($textOverlay) {
-                        TextOverlayLayer(
-                            overlay: overlayBinding,
-                            isSelected: $isTextSelected,
-                            containerSize: geo.size,
-                            onCommit: onTextCommit,
-                            onEdit: onTextEdit,
-                            onDelete: onTextDelete
-                        )
-                    }
+                    overlayLayers(containerSize: geo.size)
                 }
+            }
+            .onChange(of: textOverlay != nil) { _, isPresent in
+                if isPresent { selected = .text }
+            }
+            .onChange(of: logoOverlay != nil) { _, isPresent in
+                if isPresent { selected = .logo }
             }
             // Bakgrunden klipps till formens siluett (som i exporten) - annars
             // syns bakgrundsfärgen utanför t.ex. en åttahörning/cirkel.
             .background(backgroundLayer.clipShape(shape.swiftUIShape))
             .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Logotypen under, texten överst - samma ordning som i exporten.
+    @ViewBuilder
+    private func overlayLayers(containerSize: CGSize) -> some View {
+        ZStack {
+            if let logoBinding = Binding($logoOverlay) {
+                LogoOverlayLayer(
+                    logo: logoBinding,
+                    isSelected: isSelected(.logo),
+                    containerSize: containerSize,
+                    onCommit: onOverlayCommit,
+                    onDelete: onLogoDelete
+                )
+            }
+            if let overlayBinding = Binding($textOverlay) {
+                TextOverlayLayer(
+                    overlay: overlayBinding,
+                    isSelected: isSelected(.text),
+                    containerSize: containerSize,
+                    onCommit: onOverlayCommit,
+                    onEdit: onTextEdit,
+                    onDelete: onTextDelete
+                )
+            }
+        }
     }
 
     /// Ett FAST bakgrundslager bakom urklippet - flyttas ALDRIG av

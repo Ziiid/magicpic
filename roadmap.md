@@ -146,6 +146,19 @@ och `CLAUDE.md` för arkitektur/vägval.
   (`framedWithText`) så placeringen stämmer. Del av undo/redo och
   "Återställ". Inte testad på enhet ännu.
 
+- **Logo/bild på bilden (2026-09-29).** "Logo"-knappen i verktygsraden
+  importerar en bildfil (PNG-genomskinlighet bevaras) som ett lager ovanpå
+  bilden - EN logotyp, som kan finnas samtidigt som EN text. Samma
+  markeringsram/enfingershandtag som texten (nu delad mekanik:
+  `SelectableOverlayLayer` i `Views/OverlayLayers.swift`, med
+  `TextOverlayLayer`/`LogoOverlayLayer` som tunna omslag) plus en
+  spegelvänd-knapp (övre höger) och ✕ för att ta bort. Modell:
+  `LogoOverlay` (relativt kanvasen, som `TextOverlay`), export:
+  `LogoOverlayService` (CoreGraphics) - ritas i `applyPipeline` FÖRE texten
+  och före siluetten. `commitTextOverlay()` blev `commitOverlays()` som
+  hanterar båda. Ny logotyp byter bara bilden om en redan finns (placering
+  behålls). Inte testad än.
+
 ## Kvar
 
 5. Batch-bearbetning av flera bilder samtidigt. Ursprungligen tänkt som

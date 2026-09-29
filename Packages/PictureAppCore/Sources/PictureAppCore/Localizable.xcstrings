@@ -2058,6 +2058,36 @@
           }
         }
       }
+    },
+    "Logo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logo"
+          }
+        }
+      }
+    },
+    "Lägg på en logotyp eller bild som du kan flytta, ändra storlek på, vrida och spegelvända." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a logo or image you can move, resize, rotate and flip."
+          }
+        }
+      }
+    },
+    "Kunde inte läsa logotypen:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't read the logo:"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
