@@ -13,6 +13,9 @@ struct PhotoFilterPickerView: View {
     let currentFilter: PhotoFilter
     let onSelect: (PhotoFilter) -> Void
     let onDone: () -> Void
+    // Siluettens miniatyr behöver motivmasken (annars en svart ruta) - samma
+    // laddare som Bakgrund-väljaren använder.
+    let loadPreviewMask: () async -> BackgroundRemovalService.ForegroundMask?
 
     @State private var thumbnails: [PhotoFilter: PlatformImage] = [:]
 
@@ -61,9 +64,14 @@ struct PhotoFilterPickerView: View {
     @ViewBuilder
     private func thumbnailView(for filter: PhotoFilter) -> some View {
         if let thumbnail = thumbnails[filter] {
-            Image(platformImage: thumbnail)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+            ZStack {
+                // Rutmönster bakom siluetten - annars vore den svarta figuren
+                // omöjlig att skilja från en svart ruta.
+                if filter == .silhouette { CheckerboardBackground() }
+                Image(platformImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            }
         } else {
             Rectangle()
                 .fill(Color.secondary.opacity(0.15))
@@ -74,9 +82,27 @@ struct PhotoFilterPickerView: View {
     private func generateThumbnails() async {
         let filterService = PhotoFilterService()
         let small = baseImage.resized(maxDimension: 160)
-        for filter in PhotoFilter.allCases {
+        for filter in PhotoFilter.allCases where filter != .silhouette {
             guard let result = try? filterService.apply(filter, to: small) else { continue }
             thumbnails[filter] = result
+        }
+        // Siluetten sist: kräver motivmasken (kan köra Vision). Kompositeras i
+        // full upplösning (mask och bild måste täcka samma yta) och skalas ner
+        // EFTERÅT - samma princip som `BackgroundStylePickerView`. Utan mask
+        // (Vision misslyckades) blir miniatyren en svart ruta, som det ändå
+        // blir utan urklipp.
+        if let mask = await loadPreviewMask() {
+            let backgroundRemoval = BackgroundRemovalService()
+            let silhouette = await Task.detached(priority: .userInitiated) { () -> PlatformImage? in
+                guard let black = try? filterService.colorLook(.silhouette, to: PlatformImage(cgImageRepresentation: mask.original)),
+                      let blackCG = black.cgImageRepresentation else { return nil }
+                return try? backgroundRemoval.composite(mask, background: .transparent, foregroundImage: blackCG)
+            }.value
+            if let silhouette {
+                thumbnails[.silhouette] = silhouette.resized(maxDimension: 160)
+            }
+        } else if let fallback = try? filterService.apply(.silhouette, to: small) {
+            thumbnails[.silhouette] = fallback
         }
     }
 }

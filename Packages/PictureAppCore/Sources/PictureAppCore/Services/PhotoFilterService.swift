@@ -153,6 +153,26 @@ public struct PhotoFilterService {
             // rakt av istället, för ett riktigt fotonegativ-utseende.
             output = try Self.runFilter("CIColorInvert", image: source)
 
+        case .silhouette:
+            // Alla färgkanaler nollas, alfakanalen behålls - ren svart
+            // siluett. Lika med hela bilden svart om ingen bakgrunds-
+            // borttagning körts (rektangeln har ingen genomskinlighet), så
+            // `SearchViewModel.setPhotoFilter` tvingar fram en körning när
+            // stilen väljs. `CIColorMatrix` är ett riktigt CIFilter-namn.
+            guard let ciFilter = CIFilter(name: "CIColorMatrix") else {
+                throw FilterError(message: "Kunde inte skapa siluettfilter.")
+            }
+            ciFilter.setValue(source, forKey: kCIInputImageKey)
+            ciFilter.setValue(CIVector(x: 0, y: 0, z: 0, w: 0), forKey: "inputRVector")
+            ciFilter.setValue(CIVector(x: 0, y: 0, z: 0, w: 0), forKey: "inputGVector")
+            ciFilter.setValue(CIVector(x: 0, y: 0, z: 0, w: 0), forKey: "inputBVector")
+            ciFilter.setValue(CIVector(x: 0, y: 0, z: 0, w: 1), forKey: "inputAVector")
+            ciFilter.setValue(CIVector(x: 0, y: 0, z: 0, w: 0), forKey: "inputBiasVector")
+            guard let silhouetteOutput = ciFilter.outputImage else {
+                throw FilterError(message: "Kunde inte tillämpa siluetten.")
+            }
+            output = silhouetteOutput
+
         // Polaroid/Fotoautomats FÄRGLOOK - bara tonen, samma dimensioner in
         // som ut. Själva ramen/remsan byggs separat av `layoutWrap` nedan,
         // EFTER att bakgrund/formbeskärning redan körts (se filens

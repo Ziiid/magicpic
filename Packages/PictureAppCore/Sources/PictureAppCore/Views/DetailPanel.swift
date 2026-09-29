@@ -84,44 +84,6 @@ struct DetailPanel: View {
                         )
                         .padding()
 
-                        HStack(spacing: 8) {
-                            Button {
-                                viewModel.zoomSubject(by: 1 / 1.15)
-                            } label: {
-                                Label(L("Zooma ut"), systemImage: "minus.magnifyingglass")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.nativeToolbar)
-                            .help(L("Zooma ut"))
-
-                            Button {
-                                viewModel.zoomSubject(by: 1.15)
-                            } label: {
-                                Label(L("Zooma in"), systemImage: "plus.magnifyingglass")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.nativeToolbar)
-                            .help(L("Zooma in"))
-
-                            Button {
-                                viewModel.rotateSubject(byDegrees: -SearchViewModel.rotationStepDegrees)
-                            } label: {
-                                Label(L("Vrid åt vänster"), systemImage: "rotate.left")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.nativeToolbar)
-                            .help(L("Vrid åt vänster"))
-
-                            Button {
-                                viewModel.rotateSubject(byDegrees: SearchViewModel.rotationStepDegrees)
-                            } label: {
-                                Label(L("Vrid åt höger"), systemImage: "rotate.right")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.nativeToolbar)
-                            .help(L("Vrid åt höger"))
-                        }
-
                         Text(L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -130,6 +92,50 @@ struct DetailPanel: View {
                     Text(L("Kunde inte ladda bilden."))
                         .foregroundStyle(.secondary)
                         .padding(40)
+                }
+            }
+
+            // Zoom-/rotationsknapparna ligger UTANFÖR `ScrollView` - annars
+            // hamnar de under bilden och syns bara om man scrollar när
+            // verktygsraderna nedanför tar mycket höjd (rapporterat efter att
+            // Logo-knappen fick rad 2 att brytas till två rader).
+            if showsFramingCanvas {
+                HStack(spacing: 8) {
+                    Button {
+                        viewModel.zoomSubject(by: 1 / 1.15)
+                    } label: {
+                        Label(L("Zooma ut"), systemImage: "minus.magnifyingglass")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .help(L("Zooma ut"))
+
+                    Button {
+                        viewModel.zoomSubject(by: 1.15)
+                    } label: {
+                        Label(L("Zooma in"), systemImage: "plus.magnifyingglass")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .help(L("Zooma in"))
+
+                    Button {
+                        viewModel.rotateSubject(byDegrees: -SearchViewModel.rotationStepDegrees)
+                    } label: {
+                        Label(L("Vrid åt vänster"), systemImage: "rotate.left")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .help(L("Vrid åt vänster"))
+
+                    Button {
+                        viewModel.rotateSubject(byDegrees: SearchViewModel.rotationStepDegrees)
+                    } label: {
+                        Label(L("Vrid åt höger"), systemImage: "rotate.right")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .help(L("Vrid åt höger"))
                 }
             }
 
@@ -213,25 +219,6 @@ struct DetailPanel: View {
                     .help(L("Färdiga bildstilar - svartvitt, sepia, röntgen, m.fl."))
 
                     Button {
-                        viewModel.ensureTextOverlay()
-                        showTextEditor = true
-                    } label: {
-                        Label(L("Text"), systemImage: "textformat")
-                    }
-                    .buttonStyle(.nativeToolbar)
-                    .disabled(viewModel.originalImage == nil)
-                    .help(L("Lägg till en text som du kan flytta, ändra storlek på och vrida."))
-
-                    Button {
-                        showLogoImporter = true
-                    } label: {
-                        Label(L("Logo"), systemImage: "photo.badge.plus")
-                    }
-                    .buttonStyle(.nativeToolbar)
-                    .disabled(viewModel.originalImage == nil)
-                    .help(L("Lägg på en logotyp eller bild som du kan flytta, ändra storlek på, vrida och spegelvända."))
-
-                    Button {
                         showAdjustments = true
                     } label: {
                         Label(L("Justera"), systemImage: "slider.horizontal.3")
@@ -239,16 +226,6 @@ struct DetailPanel: View {
                     .buttonStyle(.nativeToolbar)
                     .disabled(viewModel.originalImage == nil)
                     .help(L("Ljusstyrka, kontrast, mättnad, skärpa, temperatur, highlights/shadows, brusreducering, vinjett."))
-
-                    if viewModel.hasMultipleSubjects {
-                        Button {
-                            viewModel.reopenSubjectPicker()
-                        } label: {
-                            Label(L("Motiv…"), systemImage: "checkmark.circle")
-                        }
-                        .buttonStyle(.nativeToolbar)
-                        .help(L("Välj om vilket eller vilka motiv som ska behållas."))
-                    }
 
                     // Native, INTE hero - penseln KORRIGERAR vad Vision
                     // missade, den är inte appens primära löfte (det är
@@ -262,11 +239,43 @@ struct DetailPanel: View {
                     .buttonStyle(.nativeToolbar)
                     .disabled(viewModel.processedImage == nil)
                     .help(L("Måla för hand för att lägga till eller ta bort delar av urklippet."))
+                    if viewModel.hasMultipleSubjects {
+                        Button {
+                            viewModel.reopenSubjectPicker()
+                        } label: {
+                            Label(L("Motiv…"), systemImage: "checkmark.circle")
+                        }
+                        .buttonStyle(.nativeToolbar)
+                        .help(L("Välj om vilket eller vilka motiv som ska behållas."))
+                    }
                 }
 
-                // Rad 3: Utdata.
-                FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
-                    formatMenu
+                // Rad 3: Lägg till text/logotyp och Utdata - Spara/Dela
+                // högerställda, allt annat till vänster.
+                HStack(alignment: .top, spacing: 8) {
+                    FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
+                        Button {
+                            viewModel.ensureTextOverlay()
+                            showTextEditor = true
+                        } label: {
+                            Label(L("Text"), systemImage: "textformat")
+                        }
+                        .buttonStyle(.nativeToolbar)
+                        .disabled(viewModel.originalImage == nil)
+                        .help(L("Lägg till en text som du kan flytta, ändra storlek på och vrida."))
+
+                        Button {
+                            showLogoImporter = true
+                        } label: {
+                            Label(L("Logo"), systemImage: "photo.badge.plus")
+                        }
+                        .buttonStyle(.nativeToolbar)
+                        .disabled(viewModel.originalImage == nil)
+                        .help(L("Lägg på en logotyp eller bild som du kan flytta, ändra storlek på, vrida och spegelvända."))
+
+                        formatMenu
+                    }
+                    Spacer(minLength: 8)
                     exportCluster
                 }
             }
@@ -367,7 +376,8 @@ struct DetailPanel: View {
                     baseImage: original,
                     currentFilter: viewModel.photoFilter,
                     onSelect: { viewModel.setPhotoFilter($0) },
-                    onDone: { showPhotoFilters = false }
+                    onDone: { showPhotoFilters = false },
+                    loadPreviewMask: { await viewModel.previewMask() }
                 )
             }
         }
@@ -465,6 +475,16 @@ struct DetailPanel: View {
         }
         .padding(24)
         .frame(minWidth: 320, minHeight: 160)
+    }
+
+    /// Sant när `SubjectFramingCanvas` visas (samma villkor som i `ScrollView`s
+    /// grenar ovan) - då hör zoom-/rotationsknapparna hemma under den.
+    private var showsFramingCanvas: Bool {
+        guard viewModel.originalImage != nil, !viewModel.isLoadingDetail else { return false }
+        let showsLayoutPreview = viewModel.photoFilter.isLayoutStyle
+            && viewModel.compositedImage == nil
+            && viewModel.adjustedPreviewImage != nil
+        return !showsLayoutPreview
     }
 
     private var previewAspectRatio: CGFloat {

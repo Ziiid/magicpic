@@ -2088,6 +2088,36 @@
           }
         }
       }
+    },
+    "Siluett" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Silhouette"
+          }
+        }
+      }
+    },
+    "Kunde inte skapa siluettfilter." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't create the silhouette filter."
+          }
+        }
+      }
+    },
+    "Kunde inte tillämpa siluetten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't apply the silhouette."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

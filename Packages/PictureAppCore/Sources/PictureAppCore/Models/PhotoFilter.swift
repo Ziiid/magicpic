@@ -20,6 +20,7 @@ public enum PhotoFilter: String, CaseIterable, Identifiable, Equatable {
     case transfer
     case vignette
     case negative
+    case silhouette
     case polaroid
     case photobooth
     case photoboothMono
@@ -47,6 +48,7 @@ public enum PhotoFilter: String, CaseIterable, Identifiable, Equatable {
         case .transfer: return String(localized: "Filmtransfer", bundle: .module, locale: locale)
         case .vignette: return String(localized: "Vinjett", bundle: .module, locale: locale)
         case .negative: return String(localized: "Negativ", bundle: .module, locale: locale)
+        case .silhouette: return String(localized: "Siluett", bundle: .module, locale: locale)
         case .polaroid: return String(localized: "Polaroid", bundle: .module, locale: locale)
         case .photobooth: return String(localized: "Fotoautomat", bundle: .module, locale: locale)
         case .photoboothMono: return String(localized: "Fotoautomat (svartvitt)", bundle: .module, locale: locale)
@@ -70,6 +72,7 @@ public enum PhotoFilter: String, CaseIterable, Identifiable, Equatable {
         case .transfer: return "film"
         case .vignette: return "viewfinder"
         case .negative: return "circle.righthalf.filled"
+        case .silhouette: return "person.fill"
         case .polaroid: return "photo.artframe"
         case .photobooth: return "rectangle.grid.1x2.fill"
         case .photoboothMono: return "rectangle.grid.1x2"

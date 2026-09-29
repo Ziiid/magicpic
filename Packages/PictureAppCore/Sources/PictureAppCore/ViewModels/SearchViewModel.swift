@@ -547,7 +547,9 @@ public final class SearchViewModel: ObservableObject {
     public func setPhotoFilter(_ filter: PhotoFilter) {
         photoFilter = filter
         refreshEditPreview()
-        if processedImage != nil {
+        // Siluetten är bara meningsfull MOT ett urklipp (annars blir hela
+        // rektangeln svart) - kör därför alltid bakgrundsborttagningen.
+        if processedImage != nil || filter == .silhouette {
             removeBackground()
         }
     }
