@@ -150,6 +150,21 @@ Store-distribution är global).
   egen extraktion - flaggade som extra värda att dubbelkolla vid första
   riktiga testet av engelskt läge.
 
+## Verifiering just nu: bara Mac
+
+Användaren verifierar SEDAN 2026-09-29 ENDAST på Mac ("vi har inte ens börjat
+med mobil"). Allt måste därför gå att göra med bara en mus - trackpad-gester
+(nyp/vrid) får aldrig vara den enda vägen (därav +/−/↺/↻-knapparna och
+enfingershandtaget på text/logotyp). Koden hålls plattformsoberoende SwiftUI,
+men iOS-beteende (t.ex. gester i `ScrollView`) är otestat.
+
+Text och logotyp (`TextOverlay`/`LogoOverlay`, lager i `Views/OverlayLayers.swift`)
+är relativa till kanvasen och ritas i `applyPipeline` FÖRE formens siluett
+(logotyp först, text överst). Förhandsvisning (SwiftUI) och export
+(`TextOverlayService`/`LogoOverlayService`, CoreText/CoreGraphics) MÅSTE ge
+samma placering - ändra alltid båda. `SearchViewModel` är `@MainActor`:
+statiska hjälpare som körs i `Task.detached` måste vara `nonisolated`.
+
 ## Arkitektur för plattformsdelning
 
 - `PlatformImage` (i `PictureAppCore/Support/PlatformImage.swift`) är en

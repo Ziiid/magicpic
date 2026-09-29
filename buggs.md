@@ -3,6 +3,85 @@
 Logg över buggar som upptäckts under utveckling, med symptom, rotorsak och
 fix, så att liknande misstag inte upprepas. Nyast överst.
 
+## 2026-09-29: Formväljarens miniatyrer, bakgrund utanför formen, Återställ och sheet-krock
+
+Fyra närliggande buggar hittade i en session, alla från användarens skärmdumpar.
+
+1. **Formväljarens miniatyrer såg trasiga ut** (bilden förskjuten/förminskad,
+   rutmönster åt ett håll). *Rotorsak:* `ShapePickerView` tillämpade
+   användarens NUVARANDE pan/zoom (inställd för en annan ram) på alla
+   presets. *Fix:* miniatyrerna använder `.identity` (centrerad beskärning).
+2. **Bakgrundsfärgen syntes utanför formen** i förhandsvisningen
+   (`SubjectFramingCanvas`) - bara motivet klipptes, bakgrundslagret fyllde
+   hela rektangeln, fast exporten redan klippte till siluetten. *Fix:*
+   `backgroundLayer.clipShape(shape.swiftUIShape)`.
+3. **"Återställ till original" lämnade stale förhandsvisningar** i
+   Bakgrund-/Form-väljarna. *Rotorsak:* `restoreOriginal()` behöll
+   medvetet `cachedMask`/`selectedSubjectIDs`, och väljarnas miniatyrer
+   bygger på `previewMask()` - så gammalt motivval/penseldrag syntes kvar.
+   *Fix:* nollställ båda (behåll bara `cachedSubjects`, Visions råa
+   detektering, så Vision inte körs om). *Följdeffekt att känna till:*
+   motivväljaren kan då visas igen nästa gång bakgrunden körs.
+4. **"Only presenting a single sheet is supported"** (och en fördröjd
+   sheet). *Rotorsak:* Bakgrund-/Form-väljaren ligger kvar öppna efter ett
+   val; när motivväljaren sedan skulle visas väntade den tyst på att den
+   andra stängdes. *Fix:* `DetailPanel` stänger alla andra sheets när
+   `subjectSelectionRequest` sätts.
+
+**Lärdom:** (a) En förhandsvisning ska visa en NEUTRAL, jämförbar vy - inte
+ärva användarens aktuella redigeringstillstånd. (b) Cachar som "medvetet
+behålls" måste omprövas varje gång något NYTT (här: förhandsvisningar) börjar
+läsa dem. (c) Förhandsvisning och export måste klippa på SAMMA sätt. (d) Bara
+en sheet i taget - starta aldrig en ny från kod utan att stänga de gamla.
+
+---
+
+## 2026-09-29: Segt vid dra/nyp/vrid av bilden
+
+**Symptom:** "Hanteringen av bilden går trögt" (loggen fylld av
+`Invalid sample ... > last time`, som bara är symptom på en hackig
+huvudtråd).
+
+**Rotorsak (troliga, inte profilerade):** (1) `refreshShareURL()` kodade
+och skrev en full upplösnings-bild på HUVUDTRÅDEN efter varje släpp/omkörning.
+(2) `commitOutputShapeTransform()` körde hela pipelinen upp till tre gånger
+per gest (en `onEnded` per dra/nyp/vrid-delgest), även för delgester som inte
+ändrat något. (3) Text-handtaget skrev live-värden till en `@Published` för
+varje pekarhändelse och ritade om hela `DetailPanel`.
+
+**Fix:** delningsfilen kodas i `Task.detached` med `shareGeneration` som
+kastar gamla svar; `commitOutputShapeTransform()` gör ingenting om
+transformen är oförändrad; handtagets live-värden ligger i lokal `@State`.
+
+**Lärdom:** Tung IO/kodning hör aldrig hemma på huvudtråden i en callback
+som körs per gest. En callback som kan avfyras flera gånger per gest måste
+vara idempotent (tidig retur vid "ingen ändring").
+
+---
+
+## 2026-09-29: Zoom-/rotationsknapparna "försvann"
+
+**Symptom:** +/-/rotera-knapparna syntes inte längre efter att Logo-knappen
+lagts till. **Rotorsak:** de låg i den skrollbara ytan under bilden; en extra
+knapp fick verktygsrad 2 att brytas till två rader, skrollytan blev lägre
+och knapparna hamnade under det synliga. **Fix:** ligger nu UTANFÖR
+`ScrollView` (`showsFramingCanvas`). **Lärdom:** kontroller man alltid ska
+kunna nå hör inte hemma i en skrollyta vars höjd beror på hur många
+verktygsknappar som får plats.
+
+---
+
+## 2026-09-29: Typkontrollen gav timeout på `DetailPanel.body`
+
+**Symptom:** "unable to type-check this expression in reasonable time".
+**Rotorsak:** en enda modifierarkedja med ~20 led (sju sheets, fem
+`onChange`, två `fileImporter`). **Fix:** `body` delad i `baseContent` →
+`handledContent` → `sheetedContent` → `body`, tre sheets utflyttade till egna
+`@ViewBuilder`-egenskaper. **Lärdom:** dela en lång SwiftUI-kedja INNAN den
+når gränsen; varje nytt sheet/onChange är ett steg närmare.
+
+---
+
 ## 2026-09-29: Vald bakgrund fyllde inte hela kanvasen efter att motivet panorerats till ett hörn
 
 **Symptom:** Rapporterat av användaren direkt efter att "tillåt exponerad

@@ -159,6 +159,17 @@ och `CLAUDE.md` för arkitektur/vägval.
   hanterar båda. Ny logotyp byter bara bilden om en redan finns (placering
   behålls). Inte testad än.
 
+- **Siluettfilter + omordnade verktygsrader (2026-09-29).** Nytt filter
+  "Siluett" (`PhotoFilter.silhouette`, `CIColorMatrix` som nollar RGB men
+  behåller alfa) - en svart figur av motivet. Väljs det körs
+  bakgrundsborttagningen ALLTID (annars blir hela rektangeln svart), och
+  filtrets miniatyr ritas med motivmasken (`loadPreviewMask`) på rutmönster.
+  Verktygsrader: rad 2 = Bakgrund, Form, Filter, Justera, Finjustera, Motiv…;
+  rad 3 = Text, Logo, Format till vänster och Spara/Dela högerställda.
+  Zoom-/rotationsknapparna (+/−, ↺/↻ 15 grader, `zoomSubject`/`rotateSubject`)
+  ligger under bilden men UTANFÖR skrollytan så alla moment går att göra med
+  bara mus. Inte testad på enhet ännu.
+
 ## Kvar
 
 5. Batch-bearbetning av flera bilder samtidigt. Ursprungligen tänkt som
