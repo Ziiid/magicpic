@@ -9,6 +9,7 @@ struct DetailPanel: View {
     @State private var showPhotoFilters = false
     @State private var showBackgroundStylePicker = false
     @State private var showShapePicker = false
+    @State private var showTextEditor = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -52,9 +53,54 @@ struct DetailPanel: View {
                             backgroundStyle: viewModel.backgroundStyle,
                             originalImage: original,
                             transform: $viewModel.outputShapeTransform,
-                            onCommit: { viewModel.commitOutputShapeTransform() }
+                            textOverlay: $viewModel.textOverlay,
+                            onCommit: { viewModel.commitOutputShapeTransform() },
+                            onTextCommit: { viewModel.commitTextOverlay() },
+                            onTextEdit: { if !showTextEditor { showTextEditor = true } },
+                            onTextDelete: {
+                                viewModel.textOverlay = nil
+                                viewModel.commitTextOverlay()
+                            }
                         )
                         .padding()
+
+                        HStack(spacing: 8) {
+                            Button {
+                                viewModel.zoomSubject(by: 1 / 1.15)
+                            } label: {
+                                Label(L("Zooma ut"), systemImage: "minus.magnifyingglass")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.nativeToolbar)
+                            .help(L("Zooma ut"))
+
+                            Button {
+                                viewModel.zoomSubject(by: 1.15)
+                            } label: {
+                                Label(L("Zooma in"), systemImage: "plus.magnifyingglass")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.nativeToolbar)
+                            .help(L("Zooma in"))
+
+                            Button {
+                                viewModel.rotateSubject(byDegrees: -SearchViewModel.rotationStepDegrees)
+                            } label: {
+                                Label(L("Vrid åt vänster"), systemImage: "rotate.left")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.nativeToolbar)
+                            .help(L("Vrid åt vänster"))
+
+                            Button {
+                                viewModel.rotateSubject(byDegrees: SearchViewModel.rotationStepDegrees)
+                            } label: {
+                                Label(L("Vrid åt höger"), systemImage: "rotate.right")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.nativeToolbar)
+                            .help(L("Vrid åt höger"))
+                        }
 
                         Text(L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."))
                             .font(.caption)
@@ -147,6 +193,16 @@ struct DetailPanel: View {
                     .help(L("Färdiga bildstilar - svartvitt, sepia, röntgen, m.fl."))
 
                     Button {
+                        viewModel.ensureTextOverlay()
+                        showTextEditor = true
+                    } label: {
+                        Label(L("Text"), systemImage: "textformat")
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .disabled(viewModel.originalImage == nil)
+                    .help(L("Lägg till en text som du kan flytta, ändra storlek på och vrida."))
+
+                    Button {
                         showAdjustments = true
                     } label: {
                         Label(L("Justera"), systemImage: "slider.horizontal.3")
@@ -199,6 +255,37 @@ struct DetailPanel: View {
                 viewModel.beginEditSession()
             } else {
                 viewModel.endEditSession()
+            }
+        }
+        // Motivväljaren kan dyka upp MEDAN t.ex. Bakgrund-/Form-väljaren
+        // fortfarande är öppen (de ligger kvar öppna efter ett val), och
+        // SwiftUI visar bara EN sheet i taget - den nya väntade då tyst
+        // tills den gamla stängdes ("only presenting a single sheet is
+        // supported"). Stäng de andra uttryckligen så väljaren kommer direkt.
+        .onChange(of: viewModel.subjectSelectionRequest?.id) { _, id in
+            guard id != nil else { return }
+            showBackgroundStylePicker = false
+            showShapePicker = false
+            showPhotoFilters = false
+            showAdjustments = false
+            showTextEditor = false
+            showColorPicker = false
+        }
+        .onChange(of: showTextEditor) { _, isPresented in
+            if !isPresented {
+                viewModel.commitTextOverlay()
+            }
+        }
+        .sheet(isPresented: $showTextEditor) {
+            if let overlayBinding = Binding($viewModel.textOverlay) {
+                TextOverlayEditorView(
+                    overlay: overlayBinding,
+                    onDelete: {
+                        viewModel.textOverlay = nil
+                        showTextEditor = false
+                    },
+                    onDone: { showTextEditor = false }
+                )
             }
         }
         .onChange(of: showPhotoFilters) { _, isPresented in
@@ -346,6 +433,7 @@ struct DetailPanel: View {
             || viewModel.backgroundStyle != .transparent
             || viewModel.shapePreset != .square
             || viewModel.photoFilter != .none
+            || viewModel.textOverlay != nil
             || viewModel.imageAdjustments != .identity
     }
 
@@ -478,12 +566,39 @@ private struct SubjectFramingCanvas: View {
     let backgroundStyle: BackgroundOption
     let originalImage: PlatformImage
     @Binding var transform: CanvasTransform
+    @Binding var textOverlay: TextOverlay?
     let onCommit: () -> Void
+    let onTextCommit: () -> Void
+    let onTextEdit: () -> Void
+    let onTextDelete: () -> Void
+    // Om texten är markerad (grön ram med handtag) - ny text markeras direkt.
+    @State private var isTextSelected = true
 
     var body: some View {
         ManipulableImageView(image: image, clipShape: shape.swiftUIShape, transform: $transform, onCommit: onCommit, allowsExposedEdges: true)
+            // Ett tryck utanför texten avmarkerar den (texten själv tar
+            // sina egna tryck, se `TextOverlayLayer`).
+            // `simultaneousGesture` (inte `onTapGesture`) så tryckigenkänningen
+            // aldrig kan fördröja/blockera dra-/nyp-/vridgesten på motivet.
+            .simultaneousGesture(TapGesture().onEnded { isTextSelected = false })
             .aspectRatio(aspectRatio, contentMode: .fit)
-            .background(backgroundLayer)
+            .overlay {
+                GeometryReader { geo in
+                    if let overlayBinding = Binding($textOverlay) {
+                        TextOverlayLayer(
+                            overlay: overlayBinding,
+                            isSelected: $isTextSelected,
+                            containerSize: geo.size,
+                            onCommit: onTextCommit,
+                            onEdit: onTextEdit,
+                            onDelete: onTextDelete
+                        )
+                    }
+                }
+            }
+            // Bakgrunden klipps till formens siluett (som i exporten) - annars
+            // syns bakgrundsfärgen utanför t.ex. en åttahörning/cirkel.
+            .background(backgroundLayer.clipShape(shape.swiftUIShape))
             .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 

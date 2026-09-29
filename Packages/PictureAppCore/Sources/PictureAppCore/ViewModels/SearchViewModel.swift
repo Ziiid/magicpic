@@ -48,6 +48,11 @@ public final class SearchViewModel: ObservableObject {
     // som "LinkedIn-profil") - se `ShapePreset`s egen dokumentation.
     @Published public var shapePreset: ShapePreset = .square
     @Published public var outputShapeTransform: CanvasTransform = .identity
+    /// Texten som ligger ovanpå bilden (`nil` = ingen). Ändras LIVE via
+    /// bindningar i `DetailPanel` (dra/skriva) utan att köra pipelinen -
+    /// själva förhandsvisningen är ett SwiftUI-lager - och "committas" först
+    /// när en gest/redigeringsrutan avslutas, se `commitTextOverlay()`.
+    @Published public var textOverlay: TextOverlay?
     @Published public var backgroundPositioningRequest: BackgroundPositioningRequest?
     @Published public var maskEditingRequest: MaskEditingRequest?
     @Published public var subjectSelectionRequest: SubjectSelectionRequest?
@@ -102,7 +107,8 @@ public final class SearchViewModel: ObservableObject {
         let photoFilter: PhotoFilter
         let imageAdjustments: ImageAdjustments
         let shapePreset: ShapePreset
-        let outputShapeTransform: CanvasTransform
+        var outputShapeTransform: CanvasTransform
+        var textOverlay: TextOverlay?
         let selectedSubjectIDs: Set<Int>?
         let cachedMask: BackgroundRemovalService.ForegroundMask?
     }
@@ -112,6 +118,7 @@ public final class SearchViewModel: ObservableObject {
     private let shapeCrop = ShapeCropService()
     private let imageAdjustment = ImageAdjustmentService()
     private let photoFilterService = PhotoFilterService()
+    private let textOverlayService = TextOverlayService()
     // Ökas för varje refreshEditPreview()-anrop så att en sen, ren
     // förhandsvisningskörning (utan Vision) inte skriver över en nyare -
     // samma mönster som `backgroundGeneration`.
@@ -157,6 +164,11 @@ public final class SearchViewModel: ObservableObject {
     // ens anropas. Uppdateras varje gång transformen sätts på något annat
     // sätt också (nollställning, undo/redo) så den aldrig blir inaktuell.
     private var lastCommittedTransform: CanvasTransform = .identity
+    // Motsvarande för `textOverlay` - se `commitTextOverlay()`.
+    private var lastCommittedTextOverlay: TextOverlay?
+    // Ökas för varje `refreshShareURL()` så ett sent svar från en äldre
+    // (nu bakgrundskörd) delningsfil inte skriver över en nyare.
+    private var shareGeneration = 0
     // Tillståndet precis INNAN en pågående "session" (Justera-panelen eller
     // Filter-väljaren öppen) - flera ändringar under sessionen (varje
     // reglageutslag/filtertryck) ska bli ETT enda undo-steg när sessionen
@@ -311,11 +323,12 @@ public final class SearchViewModel: ObservableObject {
         let shapeTransform = outputShapeTransform
         let filter = photoFilter
         let adjustments = imageAdjustments
+        let overlay = textOverlay
 
         backgroundGeneration += 1
         let generation = backgroundGeneration
 
-        Task.detached(priority: .userInitiated) { [backgroundRemoval, shapeCrop, photoFilterService, imageAdjustment] in
+        Task.detached(priority: .userInitiated) { [backgroundRemoval, shapeCrop, photoFilterService, imageAdjustment, textOverlayService] in
             do {
                 let looked = try photoFilterService.colorLook(filter, to: original)
                 let adjustedCG = try imageAdjustment.apply(adjustments, to: looked).cgImageRepresentation
@@ -345,7 +358,10 @@ public final class SearchViewModel: ObservableObject {
                 // behöver den formen.
                 let composited = try backgroundRemoval.composite(mask, background: style, foregroundImage: adjustedCG)
 
-                let shaped = try shapeCrop.applyingSilhouette(preset.contour, to: canvasComposite)
+                // Texten ritas på den färdiga kompositen FÖRE siluetten, så den
+                // klipps av formen precis som motiv och bakgrund.
+                let withText = overlay.map { textOverlayService.apply($0, to: canvasComposite) } ?? canvasComposite
+                let shaped = try shapeCrop.applyingSilhouette(preset.contour, to: withText)
                 // Praktiska genvägar (t.ex. "Instagram-inlägg") tvingar EXAKT
                 // exportpixelmått - `nil` (de generiska formerna) lämnar
                 // storleken oförändrad, precis som innan `ShapePreset` fanns.
@@ -479,13 +495,22 @@ public final class SearchViewModel: ObservableObject {
         shapePreset = .square
         outputShapeTransform = .identity
         lastCommittedTransform = .identity
+        textOverlay = nil
+        lastCommittedTextOverlay = nil
         isProcessing = false
         errorMessage = nil
-        // Rör INTE `cachedMask`/`cachedSubjects`/`selectedSubjectIDs` -
-        // precis som `cachedMask` redan behölls här innan (samma bild, så
-        // nästa "Ta bort bakgrund" ska fortfarande slippa köra om Vision),
-        // ska ett redan gjort motivval också överleva en "Återställ".
+        // Kasta motivvalet och den (ev. pensel-redigerade) färdiga masken -
+        // annars visade Bakgrund-/Form-väljarnas förhandsvisningar (som
+        // bygger på `previewMask()`) fortfarande det gamla valet/penseln
+        // efter en "Återställ". Behåll bara `cachedSubjects` (Visions råa
+        // detektering av originalbilden, opåverkad av användarens val) så
+        // nästa "Ta bort bakgrund" slipper köra om Vision.
+        cachedMask = nil
+        cachedMaskSource = nil
+        selectedSubjectIDs = nil
         subjectSelectionRequest = nil
+        maskEditingRequest = nil
+        backgroundPositioningRequest = nil
         // `currentExportImage` faller nu tillbaka till originalbilden -
         // uppdatera delningsfilen så "Dela" inte pekar på det bortkastade
         // resultatet.
@@ -605,11 +630,72 @@ public final class SearchViewModel: ObservableObject {
     /// (genomskinlig), vilket upplevdes som att "bakgrunden försvinner när
     /// jag bara drar i bilden" (upptäckt 2026-09-25).
     public func commitOutputShapeTransform() {
+        // En enda nyp-/dragning avfyrar `onCommit` upp till tre gånger (se
+        // `pushUndoSnapshot(overridingTransform:)`), och de delgester som
+        // inte ändrade något gav ändå en hel omkörning av pipelinen - gjorde
+        // varje släpp segt. Ingen ändring = inget att göra.
+        guard outputShapeTransform != lastCommittedTransform else { return }
         pushUndoSnapshot(overridingTransform: lastCommittedTransform)
         lastCommittedTransform = outputShapeTransform
         if processedImage != nil {
             removeBackground()
         }
+    }
+
+    /// Skapar en standardtext om ingen finns än (utan att pusha något
+    /// undo-steg - det görs först av `commitTextOverlay()` när
+    /// redigeringen avslutas, så att "lägg till + skriv" blir ETT steg).
+    public func ensureTextOverlay() {
+        if textOverlay == nil {
+            textOverlay = TextOverlay(text: L("Din text"))
+        }
+    }
+
+    /// Anropas när en dra-/nyp-/vridgest på texten släpps eller när
+    /// textredigeraren stängs - bakar in texten i exportbilden och pushar
+    /// ETT undo-steg med `lastCommittedTextOverlay` som "innan"-läge (samma
+    /// mönster som `commitOutputShapeTransform()`; bindningen har redan
+    /// skrivit det nya värdet). En tom text räknas som "ingen text". Flera
+    /// anrop i rad för samma gest är ofarliga - den andra ser ingen skillnad.
+    public func commitTextOverlay() {
+        if let overlay = textOverlay, !overlay.hasContent {
+            textOverlay = nil
+        }
+        guard textOverlay != lastCommittedTextOverlay else { return }
+        var before = currentSnapshot()
+        before.textOverlay = lastCommittedTextOverlay
+        undoStack.append(before)
+        redoStack.removeAll()
+        updateUndoRedoAvailability()
+        lastCommittedTextOverlay = textOverlay
+        if processedImage != nil {
+            removeBackground()
+        } else {
+            refreshShareURL()
+        }
+    }
+
+    /// Zoomar motivet i formramningen ett steg (`factor` > 1 = in, < 1 = ut)
+    /// - för +/−-knapparna under ramningsytan, så allt går att göra med bara
+    /// en mus (nyp på styrplattan är inte ett krav). Samma väg som en gest:
+    /// sätt transformen och committa (ett undo-steg, omkörning av pipelinen).
+    public func zoomSubject(by factor: CGFloat) {
+        var transform = outputShapeTransform
+        transform.scale = min(max(transform.scale * factor, CanvasTransform.minScale), 8)
+        outputShapeTransform = transform
+        commitOutputShapeTransform()
+    }
+
+    /// Steget (i grader) för ↺/↻-knapparna under ramningsytan.
+    public static let rotationStepDegrees: Double = 15
+
+    /// Vrider motivet i formramningen `degrees` grader (positivt = medsols) -
+    /// musalternativet till tvåfingers-vridning, se `zoomSubject(by:)`.
+    public func rotateSubject(byDegrees degrees: Double) {
+        var transform = outputShapeTransform
+        transform.rotation += .degrees(degrees)
+        outputShapeTransform = transform
+        commitOutputShapeTransform()
     }
 
     /// Läser in en bildfil som egen bakgrund (via filväljaren i DetailPanel)
@@ -731,6 +817,8 @@ public final class SearchViewModel: ObservableObject {
         redoStack.removeAll()
         editSessionSnapshot = nil
         lastCommittedTransform = .identity
+        textOverlay = nil
+        lastCommittedTextOverlay = nil
         updateUndoRedoAvailability()
         refreshShareURL()
     }
@@ -765,7 +853,30 @@ public final class SearchViewModel: ObservableObject {
     /// bakgrundsborttagning för (processedImage fortfarande nil) sparas/
     /// delas bort tyst.
     public var currentExportImage: PlatformImage? {
-        processedImage ?? adjustedPreviewImage ?? originalImage
+        if let processedImage { return processedImage }
+        let base = adjustedPreviewImage ?? originalImage
+        guard let base, let overlay = textOverlay, overlay.hasContent else { return base }
+        return Self.framedWithText(overlay, on: base, preset: shapePreset, transform: outputShapeTransform, shapeCrop: shapeCrop, textOverlayService: textOverlayService)
+    }
+
+    /// Exportbild när en text finns men bakgrundsborttagning aldrig körts
+    /// (`processedImage == nil`): texten är placerad relativt FORMENS kanvas
+    /// (det man ser i `SubjectFramingCanvas`), så bilden måste beskäras till
+    /// den kanvasen först - annars skulle texten hamna på fel ställe i den
+    /// obeskurna originalbilden. Samma ordning som `applyPipeline`: position
+    /// → text → siluett → exportmått.
+    nonisolated private static func framedWithText(
+        _ overlay: TextOverlay,
+        on base: PlatformImage,
+        preset: ShapePreset,
+        transform: CanvasTransform,
+        shapeCrop: ShapeCropService,
+        textOverlayService: TextOverlayService
+    ) -> PlatformImage {
+        guard let positioned = try? shapeCrop.positioned(preset, image: base, transform: transform) else { return base }
+        let withText = textOverlayService.apply(overlay, to: positioned)
+        guard let shaped = try? shapeCrop.applyingSilhouette(preset.contour, to: withText) else { return withText }
+        return preset.pixelSize.map { shaped.resized(to: $0) } ?? shaped
     }
 
     private func exportFileName() -> String {
@@ -809,16 +920,41 @@ public final class SearchViewModel: ObservableObject {
     /// litet reglageutslag i bildkorrigeringspanelen, vilket skulle skriva
     /// om filen orimligt ofta under en dra-gest.
     private func refreshShareURL() {
-        guard let image = currentExportImage, let data = image.exportData(as: exportFormat) else {
-            shareURL = nil
-            return
-        }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(exportFileName())
-        do {
-            try data.write(to: url)
-            shareURL = url
-        } catch {
-            shareURL = nil
+        shareGeneration += 1
+        let generation = shareGeneration
+        let fileName = exportFileName()
+        let format = exportFormat
+        let processed = processedImage
+        let base = adjustedPreviewImage ?? originalImage
+        let overlay = textOverlay
+        let preset = shapePreset
+        let transform = outputShapeTransform
+
+        // Kodning + filskrivning (och, med en text utan körd
+        // bakgrundsborttagning, själva beskärningen/textritningen) av en
+        // full upplösnings-bild är för tungt för huvudtråden - gjorde
+        // dra-/nyp-/vridgester på bilden och texten trögga eftersom varje
+        // släpp ledde hit. `shareGeneration` kastar ett för gammalt svar.
+        Task.detached(priority: .utility) { [shapeCrop, textOverlayService] in
+            let image: PlatformImage?
+            if let processed {
+                image = processed
+            } else if let base, let overlay, overlay.hasContent {
+                image = Self.framedWithText(overlay, on: base, preset: preset, transform: transform, shapeCrop: shapeCrop, textOverlayService: textOverlayService)
+            } else {
+                image = base
+            }
+            var url: URL?
+            if let image, let data = image.exportData(as: format) {
+                let target = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+                if (try? data.write(to: target)) != nil {
+                    url = target
+                }
+            }
+            await MainActor.run {
+                guard generation == self.shareGeneration else { return }
+                self.shareURL = url
+            }
         }
     }
 
@@ -831,6 +967,7 @@ public final class SearchViewModel: ObservableObject {
             imageAdjustments: imageAdjustments,
             shapePreset: shapePreset,
             outputShapeTransform: outputShapeTransform,
+            textOverlay: textOverlay,
             selectedSubjectIDs: selectedSubjectIDs,
             cachedMask: cachedMask
         )
@@ -863,15 +1000,8 @@ public final class SearchViewModel: ObservableObject {
     private func pushUndoSnapshot(overridingTransform transform: CanvasTransform) {
         let current = currentSnapshot()
         guard current.outputShapeTransform != transform else { return }
-        let before = EditSnapshot(
-            backgroundStyle: current.backgroundStyle,
-            photoFilter: current.photoFilter,
-            imageAdjustments: current.imageAdjustments,
-            shapePreset: current.shapePreset,
-            outputShapeTransform: transform,
-            selectedSubjectIDs: current.selectedSubjectIDs,
-            cachedMask: current.cachedMask
-        )
+        var before = current
+        before.outputShapeTransform = transform
         undoStack.append(before)
         redoStack.removeAll()
         updateUndoRedoAvailability()
@@ -917,6 +1047,8 @@ public final class SearchViewModel: ObservableObject {
         shapePreset = snapshot.shapePreset
         outputShapeTransform = snapshot.outputShapeTransform
         lastCommittedTransform = snapshot.outputShapeTransform
+        textOverlay = snapshot.textOverlay
+        lastCommittedTextOverlay = snapshot.textOverlay
         selectedSubjectIDs = snapshot.selectedSubjectIDs
         cachedMask = snapshot.cachedMask
         errorMessage = nil

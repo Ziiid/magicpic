@@ -131,6 +131,21 @@ och `CLAUDE.md` för arkitektur/vägval.
    `ToolbarChrome`s `.native`-läge saknade en uttrycklig `.foregroundStyle(.primary)`.
    Inte omtestad på enhet ännu.
 
+- **Text på bilden (2026-09-29).** En egen text som kan skrivas, dras,
+  nypas (storlek) och vridas direkt på kanvasen. "Text"-knappen i
+  verktygsraden öppnar `TextOverlayEditorView` (text, 5 teckensnitt,
+  färg, storlek, skugga, Centrera, Ta bort); ett tryck på texten öppnar
+  samma ruta. EN text i första versionen (flera kräver val/borttagning av
+  enskilda objekt). Modell: `TextOverlay` (allt RELATIVT till kanvasen,
+  som `CanvasTransform`). Förhandsvisning: `TextOverlayLayer` (SwiftUI,
+  ritas inte klippt till formen så texten alltid går att ta tag i).
+  Export: `TextOverlayService` (CoreText) i `applyPipeline`, EFTER
+  bakgrund/motiv men FÖRE formens siluett och före filter-ramar
+  (Polaroid) - texten påverkas alltså inte av filter/justeringar. Utan
+  körd bakgrundsborttagning beskärs bilden till formens kanvas först
+  (`framedWithText`) så placeringen stämmer. Del av undo/redo och
+  "Återställ". Inte testad på enhet ännu.
+
 ## Kvar
 
 5. Batch-bearbetning av flera bilder samtidigt. Ursprungligen tänkt som

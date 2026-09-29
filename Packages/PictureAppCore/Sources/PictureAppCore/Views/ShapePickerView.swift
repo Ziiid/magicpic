@@ -13,6 +13,10 @@ import SwiftUI
 /// diskret undertext - användaren ska kunna tänka "jag behöver en
 /// LinkedIn-profilbild" istället för att behöva veta att det innebär 1:1.
 ///
+/// Miniatyrerna visar ALLTID en centrerad beskärning (`.identity`), inte
+/// användarens nuvarande pan/zoom - den är inställd för en annan kanvas och
+/// gav förskjutna/förminskade, delvis genomskinliga rutor i andra former.
+///
 /// Miniatyrerna genereras EN gång från en nedskalad kopia av bilden
 /// (`PlatformImage.resized(maxDimension:)`) - till skillnad från
 /// `BackgroundStylePickerView` finns ingen mask att hålla i synk med, så
@@ -71,7 +75,9 @@ struct ShapePickerView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(4)
+                .padding(.horizontal, 4)
+                .padding(.top, 4)
+                .padding(.bottom, 16)
             }
 
             HStack {
@@ -119,7 +125,7 @@ struct ShapePickerView: View {
         let shapeCrop = ShapeCropService()
         let small = baseImage.resized(maxDimension: 160)
         for preset in ShapePreset.all {
-            guard let result = try? shapeCrop.apply(preset, to: small, transform: transform) else { continue }
+            guard let result = try? shapeCrop.apply(preset, to: small) else { continue }
             thumbnails[preset.id] = result
         }
     }
