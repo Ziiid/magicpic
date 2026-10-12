@@ -1,9 +1,7 @@
 {
   "sourceLanguage" : "sv",
   "strings" : {
-    "" : {
-
-    },
+    "" : {},
     "%lld av %lld motiv valda" : {
       "localizations" : {
         "en" : {
@@ -104,16 +102,6 @@
         }
       }
     },
-    "Bakgrundsfärg" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Background Color"
-          }
-        }
-      }
-    },
     "Bearbetar…" : {
       "localizations" : {
         "en" : {
@@ -154,6 +142,16 @@
         }
       }
     },
+    "Centrera" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Center"
+          }
+        }
+      }
+    },
     "Cirkel" : {
       "localizations" : {
         "en" : {
@@ -184,12 +182,12 @@
         }
       }
     },
-    "Den här bilden går inte att dra in direkt - webbsidan levererar bilddata på ett sätt appen inte kan läsa. Högerklicka bilden i webbläsaren, välj \"Kopiera bild\", och använd fliken \"Urklipp\" istället." : {
+    "Din text" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This image can't be dragged in directly - the website delivers image data in a way the app can't read. Right-click the image in the browser, choose \"Copy Image\", and use the \"Clipboard\" tab instead."
+            "value" : "Your text"
           }
         }
       }
@@ -210,26 +208,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Drag to move, pinch to zoom, twist with two fingers to rotate."
-          }
-        }
-      }
-    },
-    "Dra för att lägga till eller ta bort delar av motivet." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Drag to add or remove parts of the subject."
-          }
-        }
-      }
-    },
-    "Dra för att panorera, nyp för att zooma in och måla precisare." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Drag to pan, pinch to zoom in and paint more precisely."
           }
         }
       }
@@ -260,6 +238,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ready-made styles - black & white, sepia, X-ray, and more."
+          }
+        }
+      }
+    },
+    "Färg" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color"
           }
         }
       }
@@ -310,26 +298,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fine-Tune the Cutout"
-          }
-        }
-      }
-    },
-    "Fler färger" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "More Colors"
-          }
-        }
-      }
-    },
-    "Fler färger…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "More Colors…"
           }
         }
       }
@@ -440,6 +408,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Redo the last undone change."
+          }
+        }
+      }
+    },
+    "Handskrift" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Handwriting"
           }
         }
       }
@@ -674,22 +652,22 @@
         }
       }
     },
-    "Klistra in en bild från urklipp - t.ex. en skärmbild, eller en bild du kopierat från en app eller webbsida." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paste an image from the clipboard - e.g. a screenshot, or an image copied from an app or website."
-          }
-        }
-      }
-    },
     "Kontrast" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Contrast"
+          }
+        }
+      }
+    },
+    "Kraftig" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heavy"
           }
         }
       }
@@ -860,6 +838,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't read the selected image."
+          }
+        }
+      }
+    },
+    "Kunde inte läsa logotypen:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't read the logo:"
           }
         }
       }
@@ -1094,6 +1082,16 @@
         }
       }
     },
+    "Kunde inte skapa siluettfilter." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't create the silhouette filter."
+          }
+        }
+      }
+    },
     "Kunde inte skapa skärpefilter." : {
       "localizations" : {
         "en" : {
@@ -1234,6 +1232,16 @@
         }
       }
     },
+    "Kunde inte tillämpa siluetten." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't apply the silhouette."
+          }
+        }
+      }
+    },
     "Kunde inte tillämpa värmekameraeffekten." : {
       "localizations" : {
         "en" : {
@@ -1284,12 +1292,32 @@
         }
       }
     },
+    "Lägg på en logotyp eller bild som du kan flytta, ändra storlek på, vrida och spegelvända." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a logo or image you can move, resize, rotate and flip."
+          }
+        }
+      }
+    },
     "Lägg till" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Add"
+          }
+        }
+      }
+    },
+    "Lägg till en text som du kan flytta, ändra storlek på och vrida." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add text you can move, resize and rotate."
           }
         }
       }
@@ -1324,6 +1352,16 @@
         }
       }
     },
+    "Logo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logo"
+          }
+        }
+      }
+    },
     "Måla" : {
       "localizations" : {
         "en" : {
@@ -1350,6 +1388,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Saturation"
+          }
+        }
+      }
+    },
+    "Modern" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modern"
+          }
+        }
+      }
+    },
+    "Mono" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mono"
           }
         }
       }
@@ -1565,6 +1623,26 @@
         }
       }
     },
+    "Serif" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serif"
+          }
+        }
+      }
+    },
+    "Siluett" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Silhouette"
+          }
+        }
+      }
+    },
     "Skapa en bild:" : {
       "localizations" : {
         "en" : {
@@ -1616,6 +1694,16 @@
         }
       }
     },
+    "Skugga" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shadow"
+          }
+        }
+      }
+    },
     "Sök eller beskriv en bild…" : {
       "localizations" : {
         "en" : {
@@ -1656,6 +1744,16 @@
         }
       }
     },
+    "Storlek" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size"
+          }
+        }
+      }
+    },
     "Svartvitt" : {
       "localizations" : {
         "en" : {
@@ -1686,6 +1784,16 @@
         }
       }
     },
+    "Ta bort text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove text"
+          }
+        }
+      }
+    },
     "Ta en bild" : {
       "localizations" : {
         "en" : {
@@ -1696,12 +1804,32 @@
         }
       }
     },
+    "Teckensnitt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Font"
+          }
+        }
+      }
+    },
     "Temperatur" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Temperature"
+          }
+        }
+      }
+    },
+    "Text" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Text"
           }
         }
       }
@@ -1722,16 +1850,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tonal"
-          }
-        }
-      }
-    },
-    "Urklipp" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clipboard"
           }
         }
       }
@@ -1836,6 +1954,26 @@
         }
       }
     },
+    "Vrid åt höger" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotate right"
+          }
+        }
+      }
+    },
+    "Vrid åt vänster" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rotate left"
+          }
+        }
+      }
+    },
     "Webb/AI" : {
       "localizations" : {
         "en" : {
@@ -1845,9 +1983,6 @@
           }
         }
       }
-    },
-    "XtraPic" : {
-
     },
     "XtraPic saknar behörighet att använda kameran. Godkänn i Systeminställningar > Sekretess och säkerhet > Kamera." : {
       "localizations" : {
@@ -1879,146 +2014,6 @@
         }
       }
     },
-    "Text" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Text"
-          }
-        }
-      }
-    },
-    "Din text" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your text"
-          }
-        }
-      }
-    },
-    "Teckensnitt" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Font"
-          }
-        }
-      }
-    },
-    "Storlek" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Size"
-          }
-        }
-      }
-    },
-    "Färg" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Color"
-          }
-        }
-      }
-    },
-    "Skugga" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shadow"
-          }
-        }
-      }
-    },
-    "Ta bort text" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove text"
-          }
-        }
-      }
-    },
-    "Centrera" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Center"
-          }
-        }
-      }
-    },
-    "Modern" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modern"
-          }
-        }
-      }
-    },
-    "Kraftig" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Heavy"
-          }
-        }
-      }
-    },
-    "Serif" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Serif"
-          }
-        }
-      }
-    },
-    "Handskrift" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Handwriting"
-          }
-        }
-      }
-    },
-    "Mono" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mono"
-          }
-        }
-      }
-    },
-    "Lägg till en text som du kan flytta, ändra storlek på och vrida." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add text you can move, resize and rotate."
-          }
-        }
-      }
-    },
     "Zooma in" : {
       "localizations" : {
         "en" : {
@@ -2039,82 +2034,192 @@
         }
       }
     },
-    "Vrid åt vänster" : {
+    "Sparad i Foton." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rotate left"
+            "value" : "Saved to Photos."
           }
         }
       }
     },
-    "Vrid åt höger" : {
+    "Bilden sparades." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Rotate right"
+            "value" : "Image saved."
           }
         }
       }
     },
-    "Logo" : {
+    "Den här bilden går inte att dra in direkt - webbsidan levererar bilddata på ett sätt appen inte kan läsa. Högerklicka bilden i webbläsaren, välj \"Kopiera bild\", och använd \"Klistra in bild\" under Webb/AI istället." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Logo"
+            "value" : "This image can't be dragged in directly - the website delivers image data in a way the app can't read. Right-click the image in the browser, choose \"Copy Image\", and use the \"Paste image\" button under Web/AI instead."
           }
         }
       }
     },
-    "Lägg på en logotyp eller bild som du kan flytta, ändra storlek på, vrida och spegelvända." : {
+    "Välj en bild från Foton eller ta en ny med kameran." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add a logo or image you can move, resize, rotate and flip."
+            "value" : "Choose an image from Photos or take a new one with the camera."
           }
         }
       }
     },
-    "Kunde inte läsa logotypen:" : {
+    "Skriv en sökning ovan, välj Google eller Pinterest och tryck på förstoringsglaset - det öppnas i webbläsaren. Kopiera bilden du hittar och klistra in den här." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Couldn't read the logo:"
+            "value" : "Type a search above, choose Google or Pinterest, and tap the magnifying glass - it opens in the browser. Copy the image you find and paste it here."
           }
         }
       }
     },
-    "Siluett" : {
+    "Egen färg…" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Silhouette"
+            "value" : "Custom color…"
           }
         }
       }
     },
-    "Kunde inte skapa siluettfilter." : {
+    "Tryck på ett alternativ för att prova det. Tryck Klart när du är nöjd." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Couldn't create the silhouette filter."
+            "value" : "Tap an option to try it. Tap Done when you're happy."
           }
         }
       }
     },
-    "Kunde inte tillämpa siluetten." : {
+    "Bakgrundsfärg" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Couldn't apply the silhouette."
+            "value" : "Background color"
+          }
+        }
+      }
+    },
+    "Dra för att panorera. Använd zoomreglaget nedan för att komma närmare." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag to pan. Use the zoom slider below to get closer."
+          }
+        }
+      }
+    },
+    "Dra för att lägga till eller ta bort delar av motivet. Zooma med reglaget nedan." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag to add or remove parts of the subject. Zoom with the slider below."
+          }
+        }
+      }
+    },
+    "Lägg överst" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bring to front"
+          }
+        }
+      }
+    },
+    "Skicka bakåt" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send to back"
+          }
+        }
+      }
+    },
+    "Polaroid och Fotoautomat bygger sin egen ram, så form och position kan inte ändras medan de är valda. Välj Ingen eller ett annat filter för att ändra dem." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Polaroid and Photo Booth build their own frame, so shape and position can't be changed while they're selected. Choose None or another filter to change them."
+          }
+        }
+      }
+    },
+    "Stjärna" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Star"
+          }
+        }
+      }
+    },
+    "Frihand" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freeform"
+          }
+        }
+      }
+    },
+    "Rita en egen kontur" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draw your own outline"
+          }
+        }
+      }
+    },
+    "Rita en egen form" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draw your own shape"
+          }
+        }
+      }
+    },
+    "Dra runt det du vill behålla. Släpp för att stänga formen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag around what you want to keep. Release to close the shape."
+          }
+        }
+      }
+    },
+    "Rensa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear"
           }
         }
       }

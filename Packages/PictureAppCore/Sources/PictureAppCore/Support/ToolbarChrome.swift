@@ -140,8 +140,8 @@ private struct HeroSegmentBody: View {
 
     var body: some View {
         configuration.label
-            .background(
-                Capsule(style: .continuous).fill(wash)
+            .overlay(
+                Capsule(style: .continuous).fill(wash).allowsHitTesting(false)
             )
             .opacity(isEnabled ? 1 : 0.5)
             .onHover { isHovering = $0 }

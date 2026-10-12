@@ -13,6 +13,10 @@ public enum OutputShape: String, CaseIterable, Identifiable, Equatable {
     case circle
     case hexagon
     case octagon
+    case star
+    // Användarritad kontur (se `FreeformPath`) - själva konturen bärs av
+    // `ShapePreset.freeform`; här är den bara en markör.
+    case freeform
 
     public var id: String { rawValue }
 
@@ -25,6 +29,8 @@ public enum OutputShape: String, CaseIterable, Identifiable, Equatable {
         case .circle: return String(localized: "Cirkel", bundle: .module, locale: locale)
         case .hexagon: return String(localized: "Hexagon", bundle: .module, locale: locale)
         case .octagon: return String(localized: "Oktagon", bundle: .module, locale: locale)
+        case .star: return String(localized: "Stjärna", bundle: .module, locale: locale)
+        case .freeform: return String(localized: "Frihand", bundle: .module, locale: locale)
         }
     }
 
@@ -36,6 +42,8 @@ public enum OutputShape: String, CaseIterable, Identifiable, Equatable {
         case .circle: return "circle"
         case .hexagon: return "hexagon"
         case .octagon: return "octagon"
+        case .star: return "star"
+        case .freeform: return "scribble"
         }
     }
 
@@ -44,7 +52,7 @@ public enum OutputShape: String, CaseIterable, Identifiable, Equatable {
     /// (förhandsvisningen vid positionering) så de alltid stämmer överens.
     public func cgPath(in rect: CGRect) -> CGPath {
         switch self {
-        case .rectangle, .square:
+        case .rectangle, .square, .freeform:
             return CGPath(rect: rect, transform: nil)
         case .roundedSquare:
             let corner = rect.width * 0.18
@@ -55,6 +63,8 @@ public enum OutputShape: String, CaseIterable, Identifiable, Equatable {
             return Self.regularPolygonPath(sides: 6, in: rect)
         case .octagon:
             return Self.regularPolygonPath(sides: 8, in: rect)
+        case .star:
+            return Self.starPath(points: 5, innerRatio: 0.42, in: rect)
         }
     }
 
@@ -63,6 +73,27 @@ public enum OutputShape: String, CaseIterable, Identifiable, Equatable {
     /// slutresultatet.
     public var swiftUIShape: AnyShape {
         AnyShape(OutputShapeContour(shape: self))
+    }
+
+    /// En stjärna med `points` spetsar (en spets rakt uppåt), inskriven i
+    /// `rect`. `innerRatio` = de inre hörnens radie som andel av den yttre.
+    private static func starPath(points: Int, innerRatio: CGFloat, in rect: CGRect) -> CGPath {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) / 2
+        let inner = outer * innerRatio
+        let path = CGMutablePath()
+        for i in 0..<(points * 2) {
+            let radius = i.isMultiple(of: 2) ? outer : inner
+            let angle = -CGFloat.pi / 2 + CGFloat.pi * CGFloat(i) / CGFloat(points)
+            let point = CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+            if i == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
     }
 
     /// En regelbunden N-hörning inskriven i `rect`, roterad så den alltid

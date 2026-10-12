@@ -25,7 +25,7 @@ struct IOSImageExporter: ImageExporter {
     /// exakt JPEG/PNG-kodning för Foton-sparningen kräver en lägre nivås
     /// API (`PHAssetCreationRequest.addResource`) - inte värt
     /// riskökningen för den marginella nyttan här.
-    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws {
+    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws -> Bool {
         guard image.exportData(as: format) != nil else { throw ExportError.noData }
 
         let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
@@ -36,5 +36,6 @@ struct IOSImageExporter: ImageExporter {
         try await PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.creationRequestForAsset(from: image)
         }
+        return true
     }
 }

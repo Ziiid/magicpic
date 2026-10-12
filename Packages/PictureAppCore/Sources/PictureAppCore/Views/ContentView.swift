@@ -102,39 +102,33 @@ public struct ContentView: View {
         }
     }
 
+    /// Två rader i Webb/AI-läget: källväljare + inställningar överst, och
+    /// sökfältet på EGEN rad i full bredd under (tidigare på samma rad som
+    /// allt annat, vilket gav ett alldeles för litet sökfält i smala
+    /// fönster - rapporterat 2026-10-10).
     private var searchBar: some View {
-        HStack {
-            Picker("", selection: $viewModel.sourceKind) {
-                ForEach(ImageSourceKind.allCases) { kind in
-                    Text(kind.label).tag(kind)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 300)
-            .labelsHidden()
-
-            if viewModel.sourceKind == .web {
-                TextField(L("Sök eller beskriv en bild…"), text: $viewModel.query)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { openWebSearch() }
-
-                Picker(L("Källa"), selection: $viewModel.searchEngine) {
-                    ForEach(imageSources) { source in
-                        Text(source.label).tag(source)
+        VStack(spacing: 8) {
+            HStack {
+                Picker("", selection: $viewModel.sourceKind) {
+                    ForEach(ImageSourceKind.allCases) { kind in
+                        Text(kind.label).tag(kind)
                     }
                 }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 300)
                 .labelsHidden()
-                .frame(width: 130)
 
-                Button {
-                    openWebSearch()
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                }
-                .help(webSearchHelpText)
-            } else {
                 Spacer()
-            }
+
+                if viewModel.sourceKind == .web {
+                    Picker(L("Källa"), selection: $viewModel.searchEngine) {
+                        ForEach(imageSources) { source in
+                            Text(source.label).tag(source)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 130)
+                }
 
             Button {
                 showSettings = true
@@ -148,6 +142,22 @@ public struct ContentView: View {
             // buggs.md 2026-09-26, "Blå text kvarstod på Form/Format").
             .buttonStyle(.plain)
             .help(L("Inställningar"))
+            }
+
+            if viewModel.sourceKind == .web {
+                HStack {
+                    TextField(L("Sök eller beskriv en bild…"), text: $viewModel.query)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { openWebSearch() }
+
+                    Button {
+                        openWebSearch()
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .help(webSearchHelpText)
+                }
+            }
         }
         .padding(12)
         .sheet(isPresented: $showSettings) {
@@ -206,10 +216,25 @@ public struct ContentView: View {
                 webSearchPlaceholder
             case .ownImage:
                 ownImagePlaceholder
-            case .paste:
-                pasteImagePlaceholder
             }
         }
+        // Mörk XtraPic-bakgrund bakom alla tre tomtillstånden (egen bild/
+        // urklipp/webb). Visas bara medan ingen bild är vald. Mörkt läge tvingas här så att
+        // sekundärtexten förblir läsbar mot den mörka bilden även i ljust läge.
+        .environment(\.colorScheme, .dark)
+        .background {
+            if viewModel.selectedItem == nil {
+                // scaledToFit så hela X:et får plats; bildens nästan svarta
+                // kant fortsätter i en matchande fyllnadsfärg.
+                ZStack {
+                    Color(white: 9.0 / 255.0)
+                    Image("XtraPicBack")
+                        .resizable()
+                        .scaledToFit()
+                }
+            }
+        }
+        .clipped()
         .overlay {
             if isDropTargeted {
                 RoundedRectangle(cornerRadius: 12)
@@ -232,15 +257,24 @@ public struct ContentView: View {
         )
     }
 
+    private var ownImageHintText: String {
+        #if os(iOS)
+        L("Välj en bild från Foton eller ta en ny med kameran.")
+        #else
+        L("Välj en bild från Foton, ta en ny med kameran, eller dra in en bildfil.")
+        #endif
+    }
+
     private var ownImagePlaceholder: some View {
-        VStack(spacing: 16) {
+        placeholderLayout {
             Image(systemName: "photo.badge.plus")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
-            Text(L("Välj en bild från Foton, ta en ny med kameran, eller dra in en bildfil."))
+            Text(ownImageHintText)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+        } bottom: {
             Button {
                 showImageSourceDialog = true
             } label: {
@@ -248,7 +282,50 @@ public struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Gemensam layout för de tre tomtillstånden: symbol + förklarande text
+    /// precis OVANFÖR bakgrundens X, åtgärdsknappen (och ev. felmeddelande)
+    /// precis UNDER det, och mitten fri så X:et syns ograverat. Luckan i
+    /// mitten räknas ut från hur stort X:et faktiskt ritas (bakgrundsbilden
+    /// är 3:2, `scaledToFit`, och X:et upptar ca 58 % av bildens höjd), så
+    /// texten/knappen följer X:et istället för att sitta längst ut i kanterna.
+    private func placeholderLayout<Top: View, Bottom: View>(
+        @ViewBuilder top: () -> Top,
+        @ViewBuilder bottom: () -> Bottom
+    ) -> some View {
+        // Byggs FÖRE `GeometryReader` - dess closure är escaping och får
+        // inte fånga de icke-escapande `top`/`bottom`-parametrarna.
+        let topContent = top()
+        let bottomContent = bottom()
+        return GeometryReader { geo in
+            let imageHeight = min(geo.size.height, geo.size.width / 1.5)
+            // + 2 × 72 pt (ca 2 cm) luft mellan X:et och text/knapp.
+            let xGap = imageHeight * 0.58 + 144
+            // Luckan för X:et ligger EXAKT i mitten (bakgrundsbilden är
+            // centrerad) - över- och underdelen får lika höga fält som
+            // förankrar innehållet mot luckan, annars skulle ojämnt hög
+            // text/knapp skjuta luckan ur läge och lägga texten på X:et.
+            let half = max(0, (geo.size.height - xGap) / 2)
+            VStack(spacing: 0) {
+                VStack(spacing: 12) { topContent }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .frame(height: half)
+                Color.clear.frame(height: xGap)
+                VStack(spacing: 12) {
+                    bottomContent
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .frame(height: half)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
     }
 
     /// Visas i "Webb"-läget istället för ett inbäddat resultatrutnät -
@@ -261,69 +338,36 @@ public struct ContentView: View {
     /// för ChatGPT specifikt), så en egen "Klistra in bild"-knapp visas
     /// HÄR bara när en AI-generator är vald källa (annars är den bara
     /// förvirrande brus för Google/Pinterest, där drag redan fungerar).
-    private var webSearchPlaceholder: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                Image("AppLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 96, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-
-                Text("XtraPic")
-                    .font(.title2.weight(.semibold))
-
-                if case .generator(let generator) = viewModel.searchEngine {
-                    VStack(spacing: 6) {
-                        Text(generatorInstructionText(for: generator))
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-
-                        Button {
-                            viewModel.pasteFromClipboard()
-                        } label: {
-                            Label(L("Klistra in bild"), systemImage: "doc.on.clipboard")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .keyboardShortcut("v", modifiers: .command)
-                    }
-                } else {
-                    Text(L("Skriv en sökning ovan, välj Google eller Pinterest och tryck på förstoringsglaset - det öppnas i webbläsaren. Dra in bilden du hittar direkt hit."))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-            }
-            .padding(.top, 60)
-            .frame(maxWidth: .infinity)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    /// Förklaringstext för Google/Pinterest - på iPhone finns inget drag
+    /// från webbläsaren till appen, så där hänvisas till kopiera/klistra in.
+    private var webSearchHintText: String {
+        #if os(iOS)
+        L("Skriv en sökning ovan, välj Google eller Pinterest och tryck på förstoringsglaset - det öppnas i webbläsaren. Kopiera bilden du hittar och klistra in den här.")
+        #else
+        L("Skriv en sökning ovan, välj Google eller Pinterest och tryck på förstoringsglaset - det öppnas i webbläsaren. Dra in bilden du hittar direkt hit.")
+        #endif
     }
 
-    /// Egen flik för att klistra in en bild från urklipp - t.ex. en
-    /// skärmbild, eller en bild kopierad från valfri app/webbsida. Låg
-    /// tidigare gömd som en knapp inne i "Webb"-fliken (tänkt som
-    /// reservväg när drag-and-drop inte fungerade från en webbsida), men
-    /// hörde inte ihop med webbsökning konceptuellt och var därför inte
-    /// intuitiv att hitta där (rapporterat 2026-09-26).
-    private var pasteImagePlaceholder: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "doc.on.clipboard")
+    private var webSearchPlaceholder: some View {
+        placeholderLayout {
+            Image(systemName: "globe")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
-            Text(L("Klistra in en bild från urklipp - t.ex. en skärmbild, eller en bild du kopierat från en app eller webbsida."))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+
+            if case .generator(let generator) = viewModel.searchEngine {
+                Text(generatorInstructionText(for: generator))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            } else {
+                Text(webSearchHintText)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
+        } bottom: {
+            // Alltid synlig (Urklipp-fliken är borttagen) - klistra in är
+            // enda vägen på iPhone och reservvägen på Mac.
             Button {
                 viewModel.pasteFromClipboard()
             } label: {
@@ -331,15 +375,7 @@ public struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut("v", modifiers: .command)
-
-            if let error = viewModel.errorMessage {
-                Text(error)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// Tar emot en bild som dragits in från Finder, Bilder eller en
@@ -418,7 +454,7 @@ public struct ContentView: View {
         // låta webbläsaren dra själva bilden). Det är ett opakt,
         // sidinternt format som ingen app utanför sidan kan tolka - inget
         // vi kan koda oss runt här, till skillnad från Google Bildsök/
-        // Pinterest som drar en vanlig, dragbar bild. "Klistra in"-fliken
+        // Pinterest som drar en vanlig, dragbar bild. "Klistra in"-knappen
         // (som går via "Kopiera bild" i webbläsaren, INTE sidans
         // dragkod) är den korrekta, permanenta lösningen för just den
         // sortens sida.
@@ -427,7 +463,7 @@ public struct ContentView: View {
             Task { @MainActor in
                 guard !claim.isClaimed else { return }
                 viewModel.errorMessage = String(
-                    localized: "Den här bilden går inte att dra in direkt - webbsidan levererar bilddata på ett sätt appen inte kan läsa. Högerklicka bilden i webbläsaren, välj \"Kopiera bild\", och använd fliken \"Urklipp\" istället.",
+                    localized: "Den här bilden går inte att dra in direkt - webbsidan levererar bilddata på ett sätt appen inte kan läsa. Högerklicka bilden i webbläsaren, välj \"Kopiera bild\", och använd \"Klistra in bild\" under Webb/AI istället.",
                     bundle: .module,
                     locale: AppLanguage.current.locale
                 )

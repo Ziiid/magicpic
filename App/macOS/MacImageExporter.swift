@@ -11,7 +11,7 @@ struct MacImageExporter: ImageExporter {
         var errorDescription: String? { ExporterMessages.couldNotCreateImageData }
     }
 
-    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws {
+    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws -> Bool {
         guard let data = image.exportData(as: format) else { throw ExportError.noData }
 
         let panel = NSSavePanel()
@@ -23,7 +23,8 @@ struct MacImageExporter: ImageExporter {
                 continuation.resume(returning: response == .OK ? panel.url : nil)
             }
         }
-        guard let url else { return }
+        guard let url else { return false }
         try data.write(to: url)
+        return true
     }
 }

@@ -66,8 +66,10 @@ public struct ShapeCropService {
     /// transform:)` eller en annan bild med samma mått) till formens
     /// siluett. No-op för `.square`/`.rectangle` - de är redan rektanglar
     /// (oavsett bildförhållande), ingen extra mask behövs.
-    public func applyingSilhouette(_ shape: OutputShape, to image: PlatformImage) throws -> PlatformImage {
+    public func applyingSilhouette(_ shape: OutputShape, freeform: FreeformPath? = nil, to image: PlatformImage) throws -> PlatformImage {
         guard shape != .square, shape != .rectangle else { return image }
+        // Frihand utan ritad kontur (ännu) = ingen klippning.
+        if shape == .freeform, freeform?.isUsable != true { return image }
 
         guard let cgImage = image.cgImageRepresentation else {
             throw ShapeError(message: "Kunde inte läsa bilddata.")
@@ -76,7 +78,7 @@ public struct ShapeCropService {
         let squared = CIImage(cgImage: cgImage)
         let canvasSize = squared.extent.size
 
-        guard let maskCGImage = Self.rasterizeMask(for: shape, size: canvasSize) else {
+        guard let maskCGImage = Self.rasterizeMask(for: shape, freeform: freeform, size: canvasSize) else {
             throw ShapeError(message: "Kunde inte skapa formens mask.")
         }
 
@@ -104,7 +106,7 @@ public struct ShapeCropService {
     /// - Parameter transform: Användarens pan/zoom av motivet inom duken.
     ///   `.identity` ger en centrerad beskärning.
     public func apply(_ preset: ShapePreset, to image: PlatformImage, transform: CanvasTransform = .identity) throws -> PlatformImage {
-        try applyingSilhouette(preset.contour, to: try positioned(preset, image: image, transform: transform))
+        try applyingSilhouette(preset.contour, freeform: preset.freeform, to: try positioned(preset, image: image, transform: transform))
     }
 
     private static func render(_ ciImage: CIImage, size: CGSize) throws -> PlatformImage {
@@ -115,7 +117,7 @@ public struct ShapeCropService {
         return PlatformImage(cgImageRepresentation: cgImage)
     }
 
-    private static func rasterizeMask(for shape: OutputShape, size: CGSize) -> CGImage? {
+    private static func rasterizeMask(for shape: OutputShape, freeform: FreeformPath?, size: CGSize) -> CGImage? {
         guard let context = CGContext(
             data: nil,
             width: Int(size.width),
@@ -130,7 +132,11 @@ public struct ShapeCropService {
         context.setFillColor(gray: 0, alpha: 1)
         context.fill(rect)
         context.setFillColor(gray: 1, alpha: 1)
-        context.addPath(shape.cgPath(in: rect))
+        if shape == .freeform, let freeform {
+            context.addPath(freeform.cgPath(in: rect))
+        } else {
+            context.addPath(shape.cgPath(in: rect))
+        }
         context.fillPath()
         return context.makeImage()
     }

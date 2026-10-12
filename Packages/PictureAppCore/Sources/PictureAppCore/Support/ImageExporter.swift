@@ -6,5 +6,8 @@ import Foundation
 /// implementation.
 @MainActor
 public protocol ImageExporter {
-    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws
+    /// Returnerar `true` om bilden faktiskt sparades, `false` om användaren
+    /// avbröt (t.ex. stängde spara-panelen) - så appen bara bekräftar en
+    /// riktig sparning.
+    func export(image: PlatformImage, format: ImageExportFormat, suggestedName: String) async throws -> Bool
 }

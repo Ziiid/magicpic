@@ -16,6 +16,11 @@ public struct LogoOverlay: Equatable {
     public var rotation: Angle
     /// Spegelvänd horisontellt (efter rotationen, runt egen mitt).
     public var isFlipped: Bool
+    /// Lagerordning mot texten: `false` (standard) = logotypen UNDER texten,
+    /// `true` = logotypen ÖVER texten. Styr både förhandsvisning
+    /// (`SubjectFramingCanvas.overlayLayers`) och export
+    /// (`SearchViewModel.applyOverlays`) - ändra alltid båda.
+    public var isInFront: Bool = false
 
     public static let minSize: CGFloat = 0.05
     public static let maxSize: CGFloat = 1.5
@@ -36,5 +41,6 @@ public struct LogoOverlay: Equatable {
             && lhs.offset == rhs.offset
             && lhs.rotation == rhs.rotation
             && lhs.isFlipped == rhs.isFlipped
+            && lhs.isInFront == rhs.isInFront
     }
 }

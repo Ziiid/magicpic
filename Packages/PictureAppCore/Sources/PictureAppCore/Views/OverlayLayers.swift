@@ -30,6 +30,11 @@ struct SelectableOverlayLayer<Content: View>: View {
     // (logotyp); ingen av dem om anroparen inte skickar någon.
     var onEdit: (() -> Void)?
     var onFlip: (() -> Void)?
+    // Lagerordning (Lägg överst / Skicka bakåt) - båda eller ingen; knappen
+    // nere till vänster visas bara när det finns ett annat lager att
+    // ordna mot.
+    var onBringToFront: (() -> Void)?
+    var onSendBack: (() -> Void)?
     // Själva innehållet, ritat i den aktuella (live) storleken som andel av
     // kanvasens bredd.
     @ViewBuilder let content: (CGFloat) -> Content
@@ -136,7 +141,39 @@ struct SelectableOverlayLayer<Content: View>: View {
             }
             grip
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            if let onBringToFront, let onSendBack {
+                layerMenu(onBringToFront: onBringToFront, onSendBack: onSendBack)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            }
         }
+    }
+
+    private func layerMenu(onBringToFront: @escaping () -> Void, onSendBack: @escaping () -> Void) -> some View {
+        Menu {
+            Button {
+                onBringToFront()
+            } label: {
+                Label(L("Lägg överst"), systemImage: "square.3.layers.3d.top.filled")
+            }
+            Button {
+                onSendBack()
+            } label: {
+                Label(L("Skicka bakåt"), systemImage: "square.3.layers.3d.bottom.filled")
+            }
+        } label: {
+            Circle()
+                .fill(AppTheme.accent)
+                .overlay(Circle().strokeBorder(AppTheme.onAccent, lineWidth: 2))
+                .overlay(Image(systemName: "square.3.layers.3d").font(.system(size: 10, weight: .bold)).foregroundStyle(AppTheme.onAccent))
+                .frame(width: 24, height: 24)
+                .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                .padding(4)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
     }
 
     private func chromeButton(systemImage: String, fill: Color, action: @escaping () -> Void) -> some View {
@@ -203,6 +240,8 @@ struct TextOverlayLayer: View {
     let onCommit: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
+    var onBringToFront: (() -> Void)?
+    var onSendBack: (() -> Void)?
 
     var body: some View {
         SelectableOverlayLayer(
@@ -216,6 +255,8 @@ struct TextOverlayLayer: View {
             onDelete: onDelete,
             onEdit: onEdit,
             onFlip: nil,
+            onBringToFront: onBringToFront,
+            onSendBack: onSendBack,
             content: { size in
                 let fontSize = size * containerSize.width
                 Text(overlay.text)
@@ -242,6 +283,8 @@ struct LogoOverlayLayer: View {
     let containerSize: CGSize
     let onCommit: () -> Void
     let onDelete: () -> Void
+    var onBringToFront: (() -> Void)?
+    var onSendBack: (() -> Void)?
 
     var body: some View {
         SelectableOverlayLayer(
@@ -255,6 +298,8 @@ struct LogoOverlayLayer: View {
             onDelete: onDelete,
             onEdit: nil,
             onFlip: { logo.isFlipped.toggle(); onCommit() },
+            onBringToFront: onBringToFront,
+            onSendBack: onSendBack,
             content: { size in
                 Image(platformImage: logo.image)
                     .resizable()

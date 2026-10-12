@@ -26,6 +26,8 @@ struct ShapePickerView: View {
     let baseImage: PlatformImage
     let transform: CanvasTransform
     let currentPreset: ShapePreset
+    // Polaroid/Fotoautomat vald - formen syns då inte i förhandsvisningen.
+    let isLayoutFilterActive: Bool
     let onSelect: (ShapePreset) -> Void
     let onDone: () -> Void
 
@@ -40,6 +42,12 @@ struct ShapePickerView: View {
             Text(L("Form"))
                 .font(.headline)
 
+            if isLayoutFilterActive {
+                Label(L("Polaroid och Fotoautomat bygger sin egen ram, så form och position kan inte ändras medan de är valda. Välj Ingen eller ett annat filter för att ändra dem."), systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 12)], spacing: 16) {
                     ForEach(ShapePreset.all) { preset in
@@ -52,7 +60,7 @@ struct ShapePickerView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .strokeBorder(preset == currentPreset ? AppTheme.accent : Color.secondary.opacity(0.2), lineWidth: preset == currentPreset ? 3 : 1)
+                                            .strokeBorder(preset.id == currentPreset.id ? AppTheme.accent : Color.secondary.opacity(0.2), lineWidth: preset.id == currentPreset.id ? 3 : 1)
                                     )
                                     .frame(height: 84, alignment: .bottom)
 

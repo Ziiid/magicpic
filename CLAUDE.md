@@ -231,7 +231,7 @@ statiska hjälpare som körs i `Task.detached` måste vara `nonisolated`.
   `dyn.xxx`-UTI och `com.apple.WebKit.custom-pasteboard-data`, WebKits
   typ för en sidas EGEN, JavaScript-byggda dragpayload
   (`dataTransfer.setData(...)`) - ett opakt format ingen app utanför
-  sidan kan tolka. Använd fliken "Klistra in" istället (högerklick →
+  sidan kan tolka. Använd "Klistra in bild"-knappen under Webb/AI istället (Urklipp-fliken togs bort) (högerklick →
   "Kopiera bild" i webbläsaren går via den riktiga bildbufferten, inte
   sidans dragkod) - det är den avsedda, permanenta lösningen för den här
   sortens sida, inte en tillfällig reservväg. Se `buggs.md`

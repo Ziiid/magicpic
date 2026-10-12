@@ -29,7 +29,11 @@ struct MaskEditorView: View {
     @State private var mode: Mode = .paint
     @State private var brushCursor: CGPoint?
 
-    @State private var committedScale: CGFloat = 1
+    // Zoomnivån är EN enda sanning som både reglaget och nyp-gesten skriver
+    // till, och som gäller i BÅDA lägena (Måla/Navigera) - så byte av läge
+    // aldrig tappar zoomen (rapporterat 2026-10-10).
+    @State private var zoom: CGFloat = 1
+    private static let zoomRange: ClosedRange<CGFloat> = 1...12
     @State private var committedOffset: CGSize = .zero
     @GestureState private var liveDrag: CGSize = .zero
     @GestureState private var liveMagnification: CGFloat = 1
@@ -60,22 +64,22 @@ struct MaskEditorView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             Text(L("Finjustera urklippet"))
                 .font(.headline)
             if mode == .paint {
-                Text(L("Dra för att lägga till eller ta bort delar av motivet."))
+                Text(L("Dra för att lägga till eller ta bort delar av motivet. Zooma med reglaget nedan."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text(L("Dra för att panorera, nyp för att zooma in och måla precisare."))
+                Text(L("Dra för att panorera. Använd zoomreglaget nedan för att komma närmare."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             GeometryReader { geo in
                 let containerSize = geo.size
-                let scale = max(committedScale * liveMagnification, 1)
+                let scale = min(max(zoom * liveMagnification, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
                 let offset = CGSize(width: committedOffset.width + liveDrag.width, height: committedOffset.height + liveDrag.height)
 
                 let visual = ZStack {
@@ -125,22 +129,38 @@ struct MaskEditorView: View {
                                             width: committedOffset.width + value.translation.width,
                                             height: committedOffset.height + value.translation.height
                                         )
-                                        committedOffset = Self.clampOffset(newOffset, scale: committedScale, containerSize: containerSize)
+                                        committedOffset = Self.clampOffset(newOffset, scale: zoom, containerSize: containerSize)
                                     }
                             )
                             .simultaneousGesture(
                                 MagnificationGesture()
                                     .updating($liveMagnification) { value, state, _ in state = value }
                                     .onEnded { value in
-                                        committedScale = max(committedScale * value, 1)
-                                        committedOffset = Self.clampOffset(committedOffset, scale: committedScale, containerSize: containerSize)
+                                        zoom = min(max(zoom * value, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
+                                        committedOffset = Self.clampOffset(committedOffset, scale: zoom, containerSize: containerSize)
                                     }
                             )
                     }
                 }
+                .onChange(of: zoom) { _, newZoom in
+                    // Zoomar man ut får bilden inte stå kvar förskjuten utanför kanten.
+                    committedOffset = Self.clampOffset(committedOffset, scale: newZoom, containerSize: containerSize)
+                }
             }
             .background(Color.black.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            HStack(spacing: 8) {
+                Image(systemName: "minus.magnifyingglass")
+                    .foregroundStyle(.secondary)
+                Slider(value: $zoom, in: Self.zoomRange)
+                Image(systemName: "plus.magnifyingglass")
+                    .foregroundStyle(.secondary)
+                Text(String(format: "%.1f×", Double(zoom)))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 40, alignment: .trailing)
+            }
 
             Picker(L("Läge"), selection: $mode) {
                 ForEach(Mode.allCases) { m in Text(m.label).tag(m) }
@@ -160,14 +180,18 @@ struct MaskEditorView: View {
                 }
             }
 
-            HStack {
+            // Centrerade, tätt ihop (inte ut mot sidokanterna) - i den stora
+            // rutan hamnade de annars utanför bildens kanter.
+            HStack(spacing: 16) {
                 Button(L("Avbryt"), role: .cancel) { onCancel() }
-                Spacer()
+                    .frame(minWidth: 90)
                 Button(L("Klart")) { onDone(editableMask) }
                     .keyboardShortcut(.defaultAction)
+                    .frame(minWidth: 90)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding(24)
+        .padding(16)
         // Mycket större arbetsyta än en vanlig liten dialog - Finjustera
         // används för precisionsarbete (hårstrån, kanter) där bilden
         // tidigare var för liten för att se vad man faktiskt målade
@@ -177,7 +201,7 @@ struct MaskEditorView: View {
         // bilden till den DOMINERANDE delen av ytan; `maxWidth/maxHeight:
         // .infinity` låter den dessutom växa vidare om fönstret är större
         // än `idealWidth/idealHeight`.
-        .frame(minWidth: 640, idealWidth: 900, maxWidth: .infinity, minHeight: 560, idealHeight: 760, maxHeight: .infinity)
+        .frame(minWidth: 820, idealWidth: 1180, maxWidth: .infinity, minHeight: 660, idealHeight: 880, maxHeight: .infinity)
         .task { await recomposite() }
     }
 

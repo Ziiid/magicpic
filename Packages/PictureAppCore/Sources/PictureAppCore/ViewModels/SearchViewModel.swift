@@ -8,6 +8,10 @@ public final class SearchViewModel: ObservableObject {
     @Published public var sourceKind: ImageSourceKind = .ownImage
     @Published public var searchEngine: ImageSource = .engine(.google)
     @Published public var errorMessage: String?
+    /// Kort bekräftelse ("Bilden sparades") som visas en stund efter en lyckad
+    /// sparning - annars sker sparningen tyst.
+    @Published public var saveConfirmation: String?
+    private var saveConfirmationToken = 0
 
     @Published public var selectedItem: SearchResultItem?
     @Published public var originalImage: PlatformImage?
@@ -369,7 +373,7 @@ public final class SearchViewModel: ObservableObject {
                 // den färdiga kompositen FÖRE siluetten, så de klipps av formen
                 // precis som motiv och bakgrund.
                 let withText = Self.applyOverlays(logo: logo, text: overlay, to: canvasComposite, logoService: logoOverlayService, textService: textOverlayService)
-                let shaped = try shapeCrop.applyingSilhouette(preset.contour, to: withText)
+                let shaped = try shapeCrop.applyingSilhouette(preset.contour, freeform: preset.freeform, to: withText)
                 // Praktiska genvägar (t.ex. "Instagram-inlägg") tvingar EXAKT
                 // exportpixelmått - `nil` (de generiska formerna) lämnar
                 // storleken oförändrad, precis som innan `ShapePreset` fanns.
@@ -903,7 +907,8 @@ public final class SearchViewModel: ObservableObject {
         return Self.framedWithOverlays(logo: logoOverlay, text: text, on: base, preset: shapePreset, transform: outputShapeTransform, shapeCrop: shapeCrop, logoService: logoOverlayService, textService: textOverlayService)
     }
 
-    /// Ritar logotyp (först) och text (överst) på `image`.
+    /// Ritar logotyp och text på `image` - text överst om inte
+    /// `logo.isInFront` är satt (se `LogoOverlay.isInFront`).
     nonisolated private static func applyOverlays(
         logo: LogoOverlay?,
         text: TextOverlay?,
@@ -912,8 +917,14 @@ public final class SearchViewModel: ObservableObject {
         textService: TextOverlayService
     ) -> PlatformImage {
         var result = image
-        if let logo { result = logoService.apply(logo, to: result) }
-        if let text { result = textService.apply(text, to: result) }
+        if logo?.isInFront == true {
+            // Logotypen över texten.
+            if let text { result = textService.apply(text, to: result) }
+            if let logo { result = logoService.apply(logo, to: result) }
+        } else {
+            if let logo { result = logoService.apply(logo, to: result) }
+            if let text { result = textService.apply(text, to: result) }
+        }
         return result
     }
 
@@ -935,7 +946,7 @@ public final class SearchViewModel: ObservableObject {
     ) -> PlatformImage {
         guard let positioned = try? shapeCrop.positioned(preset, image: base, transform: transform) else { return base }
         let withOverlays = applyOverlays(logo: logo, text: text, to: positioned, logoService: logoService, textService: textService)
-        guard let shaped = try? shapeCrop.applyingSilhouette(preset.contour, to: withOverlays) else { return withOverlays }
+        guard let shaped = try? shapeCrop.applyingSilhouette(preset.contour, freeform: preset.freeform, to: withOverlays) else { return withOverlays }
         return preset.pixelSize.map { shaped.resized(to: $0) } ?? shaped
     }
 
@@ -954,10 +965,26 @@ public final class SearchViewModel: ObservableObject {
 
         Task {
             do {
-                try await exporter.export(image: image, format: exportFormat, suggestedName: fileName)
+                if try await exporter.export(image: image, format: exportFormat, suggestedName: fileName) {
+                    showSaveConfirmation()
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    private func showSaveConfirmation() {
+        #if os(iOS)
+        saveConfirmation = L("Sparad i Foton.")
+        #else
+        saveConfirmation = L("Bilden sparades.")
+        #endif
+        saveConfirmationToken += 1
+        let token = saveConfirmationToken
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            if token == saveConfirmationToken { saveConfirmation = nil }
         }
     }
 

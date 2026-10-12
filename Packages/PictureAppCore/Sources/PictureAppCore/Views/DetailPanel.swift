@@ -4,13 +4,19 @@ import UniformTypeIdentifiers
 struct DetailPanel: View {
     @ObservedObject var viewModel: SearchViewModel
     @State private var showBackgroundImporter = false
-    @State private var showColorPicker = false
     @State private var showAdjustments = false
     @State private var showPhotoFilters = false
     @State private var showBackgroundStylePicker = false
     @State private var showShapePicker = false
+    @State private var showFreeformDrawer = false
     @State private var showTextEditor = false
     @State private var showLogoImporter = false
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    private var isCompact: Bool { horizontalSizeClass == .compact }
+    #else
+    private var isCompact: Bool { false }
+    #endif
 
     // `body` är uppdelad i tre kedjor (innehåll → händelsehanterare →
     // sheets) - EN enda kedja med ~20 modifierare (sju sheets, fem
@@ -18,19 +24,57 @@ struct DetailPanel: View {
     // ("unable to type-check this expression in reasonable time").
     var body: some View {
         sheetedContent
+            .overlay(alignment: .top) {
+                if let message = viewModel.saveConfirmation {
+                    Label(message, systemImage: "checkmark.circle.fill")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(AppTheme.onAccent)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Capsule(style: .continuous).fill(AppTheme.accent))
+                        .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+                        .padding(.top, 12)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: viewModel.saveConfirmation)
             .sheet(isPresented: $showBackgroundStylePicker) {
                 backgroundStyleSheet
             }
             .sheet(isPresented: $showShapePicker) {
                 shapeSheet
             }
-            .sheet(isPresented: $showColorPicker) {
-                colorSheet
+            .sheet(isPresented: $showFreeformDrawer) {
+                freeformSheet
             }
+    }
+
+    /// Förklarar VARFÖR form/positionering inte går att ändra medan en
+    /// ram-/remsstil (Polaroid, Fotoautomat) är vald - se `isLayoutStyle`.
+    private var layoutStyleNotice: some View {
+        Label(L("Polaroid och Fotoautomat bygger sin egen ram, så form och position kan inte ändras medan de är valda. Välj Ingen eller ett annat filter för att ändra dem."), systemImage: "info.circle")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal)
     }
 
     private var baseContent: some View {
         VStack(spacing: 12) {
+            // Hjälptexten ligger FAST ovanför ramningsytan (utanför
+            // `ScrollView`) - under bilden hamnade den utom synhåll för
+            // höga former som rektangel (rapporterat 2026-10-10).
+            if showsFramingCanvas {
+                Text(L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            } else if viewModel.photoFilter.isLayoutStyle, viewModel.originalImage != nil {
+                layoutStyleNotice
+            }
+
             ScrollView {
                 if viewModel.isLoadingDetail {
                     ProgressView(L("Laddar bild…"))
@@ -66,7 +110,7 @@ struct DetailPanel: View {
                     VStack(spacing: 8) {
                         SubjectFramingCanvas(
                             image: viewModel.subjectCutoutImage ?? viewModel.adjustedPreviewImage ?? original,
-                            shape: viewModel.shapePreset.contour,
+                            shape: viewModel.shapePreset.silhouetteShape,
                             aspectRatio: viewModel.shapePreset.aspectRatio ?? previewAspectRatio,
                             backgroundStyle: viewModel.backgroundStyle,
                             originalImage: original,
@@ -83,10 +127,6 @@ struct DetailPanel: View {
                             onLogoDelete: { viewModel.removeLogo() }
                         )
                         .padding()
-
-                        Text(L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
                 } else {
                     Text(L("Kunde inte ladda bilden."))
@@ -169,120 +209,244 @@ struct DetailPanel: View {
             // `HStack`) som säkerhetsnät om en rad ändå inte får plats i
             // bredd på en smal skärm (se `Support/FlowLayout.swift`,
             // ursprungligen byggd för just det problemet 2026-09-26).
-            VStack(alignment: .leading, spacing: 8) {
-                // Rad 1: Historik.
-                FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
-                    Button {
-                        viewModel.undo()
-                    } label: {
-                        Label(L("Ångra"), systemImage: "arrow.uturn.backward")
-                    }
-                    .buttonStyle(.nativeToolbar)
-                    .disabled(!viewModel.canUndo)
-                    .help(L("Ångra senaste ändringen."))
-
-                    Button {
-                        viewModel.redo()
-                    } label: {
-                        Label(L("Gör om"), systemImage: "arrow.uturn.forward")
-                    }
-                    .buttonStyle(.nativeToolbar)
-                    .disabled(!viewModel.canRedo)
-                    .help(L("Gör om den senast ångrade ändringen."))
-
-                    Button {
-                        viewModel.restoreOriginal()
-                    } label: {
-                        Label(L("Återställ till original"), systemImage: "arrow.counterclockwise")
-                    }
-                    .buttonStyle(.nativeToolbar)
-                    .disabled(!hasChanges)
-                    .help(L("Kasta bakgrunds-/form-/positioneringsval och gå tillbaka till originalbilden."))
-                }
-
-                // Rad 2: Redigeringsverktyg. Ingen egen "Ta bort bakgrund"-
-                // knapp - "Ingen (genomskinlig)" under Bakgrund-menyn gör
-                // exakt samma sak, en egen knapp för det var bara en
-                // dubblett (rapporterat 2026-09-25).
-                FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
-                    backgroundMenu
-
-                    shapeMenu
-
-                    Button {
-                        showPhotoFilters = true
-                    } label: {
-                        Label(L("Filter"), systemImage: "camera.filters")
-                    }
-                    .buttonStyle(.nativeToolbar)
-                    .disabled(viewModel.originalImage == nil)
-                    .help(L("Färdiga bildstilar - svartvitt, sepia, röntgen, m.fl."))
-
-                    Button {
-                        showAdjustments = true
-                    } label: {
-                        Label(L("Justera"), systemImage: "slider.horizontal.3")
-                    }
-                    .buttonStyle(.nativeToolbar)
-                    .disabled(viewModel.originalImage == nil)
-                    .help(L("Ljusstyrka, kontrast, mättnad, skärpa, temperatur, highlights/shadows, brusreducering, vinjett."))
-
-                    // Native, INTE hero - penseln KORRIGERAR vad Vision
-                    // missade, den är inte appens primära löfte (det är
-                    // Bakgrund + Exportera, se motiveringen vid
-                    // `backgroundMenu`).
-                    Button {
-                        viewModel.beginMaskEditing()
-                    } label: {
-                        Label(L("Finjustera"), systemImage: "paintbrush")
-                    }
-                    .buttonStyle(.nativeToolbar)
-                    .disabled(viewModel.processedImage == nil)
-                    .help(L("Måla för hand för att lägga till eller ta bort delar av urklippet."))
-                    if viewModel.hasMultipleSubjects {
-                        Button {
-                            viewModel.reopenSubjectPicker()
-                        } label: {
-                            Label(L("Motiv…"), systemImage: "checkmark.circle")
-                        }
-                        .buttonStyle(.nativeToolbar)
-                        .help(L("Välj om vilket eller vilka motiv som ska behållas."))
-                    }
-                }
-
-                // Rad 3: Lägg till text/logotyp och Utdata - Spara/Dela
-                // högerställda, allt annat till vänster.
-                HStack(alignment: .top, spacing: 8) {
-                    FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
-                        Button {
-                            viewModel.ensureTextOverlay()
-                            showTextEditor = true
-                        } label: {
-                            Label(L("Text"), systemImage: "textformat")
-                        }
-                        .buttonStyle(.nativeToolbar)
-                        .disabled(viewModel.originalImage == nil)
-                        .help(L("Lägg till en text som du kan flytta, ändra storlek på och vrida."))
-
-                        Button {
-                            showLogoImporter = true
-                        } label: {
-                            Label(L("Logo"), systemImage: "photo.badge.plus")
-                        }
-                        .buttonStyle(.nativeToolbar)
-                        .disabled(viewModel.originalImage == nil)
-                        .help(L("Lägg på en logotyp eller bild som du kan flytta, ändra storlek på, vrida och spegelvända."))
-
-                        formatMenu
-                    }
-                    Spacer(minLength: 8)
-                    exportCluster
-                }
-            }
-            .padding(.horizontal, 2)
-            .padding(.bottom, 12)
+            toolbar
+                .padding(.horizontal, 2)
+                .padding(.bottom, 12)
         }
         .frame(maxHeight: .infinity)
+    }
+
+    /// Mac/iPad (bred panel): tre rader med textknappar.
+    private var regularToolbar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Rad 1: Historik.
+            FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
+                Button {
+                    viewModel.undo()
+                } label: {
+                    Label(L("Ångra"), systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(!viewModel.canUndo)
+                .help(L("Ångra senaste ändringen."))
+
+                Button {
+                    viewModel.redo()
+                } label: {
+                    Label(L("Gör om"), systemImage: "arrow.uturn.forward")
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(!viewModel.canRedo)
+                .help(L("Gör om den senast ångrade ändringen."))
+
+                Button {
+                    viewModel.restoreOriginal()
+                } label: {
+                    Label(L("Återställ till original"), systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(!hasChanges)
+                .help(L("Kasta bakgrunds-/form-/positioneringsval och gå tillbaka till originalbilden."))
+            }
+
+            // Rad 2: Redigeringsverktyg. Ingen egen "Ta bort bakgrund"-
+            // knapp - "Ingen (genomskinlig)" under Bakgrund-menyn gör
+            // exakt samma sak, en egen knapp för det var bara en
+            // dubblett (rapporterat 2026-09-25).
+            FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
+                backgroundMenu
+
+                shapeMenu
+
+                Button {
+                    showPhotoFilters = true
+                } label: {
+                    Label(L("Filter"), systemImage: "camera.filters")
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(viewModel.originalImage == nil)
+                .help(L("Färdiga bildstilar - svartvitt, sepia, röntgen, m.fl."))
+
+                Button {
+                    showAdjustments = true
+                } label: {
+                    Label(L("Justera"), systemImage: "slider.horizontal.3")
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(viewModel.originalImage == nil)
+                .help(L("Ljusstyrka, kontrast, mättnad, skärpa, temperatur, highlights/shadows, brusreducering, vinjett."))
+
+                // Native, INTE hero - penseln KORRIGERAR vad Vision
+                // missade, den är inte appens primära löfte (det är
+                // Bakgrund + Exportera, se motiveringen vid
+                // `backgroundMenu`).
+                Button {
+                    viewModel.beginMaskEditing()
+                } label: {
+                    Label(L("Finjustera"), systemImage: "paintbrush")
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(viewModel.processedImage == nil)
+                .help(L("Måla för hand för att lägga till eller ta bort delar av urklippet."))
+                if viewModel.hasMultipleSubjects {
+                    Button {
+                        viewModel.reopenSubjectPicker()
+                    } label: {
+                        Label(L("Motiv…"), systemImage: "checkmark.circle")
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .help(L("Välj om vilket eller vilka motiv som ska behållas."))
+                }
+            }
+
+            // Rad 3: Lägg till text/logotyp och Utdata - Spara/Dela
+            // högerställda, allt annat till vänster.
+            HStack(alignment: .top, spacing: 8) {
+                FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
+                    Button {
+                        viewModel.ensureTextOverlay()
+                        showTextEditor = true
+                    } label: {
+                        Label(L("Text"), systemImage: "textformat")
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .disabled(viewModel.originalImage == nil)
+                    .help(L("Lägg till en text som du kan flytta, ändra storlek på och vrida."))
+
+                    Button {
+                        showLogoImporter = true
+                    } label: {
+                        Label(L("Logo"), systemImage: "photo.badge.plus")
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .disabled(viewModel.originalImage == nil)
+                    .help(L("Lägg på en logotyp eller bild som du kan flytta, ändra storlek på, vrida och spegelvända."))
+
+                    formatMenu
+                }
+                Spacer(minLength: 8)
+                exportCluster()
+            }
+        }
+    }
+
+    /// Välj verktygslayout efter tillgänglig bredd: iPhone (och smal iPad-
+    /// vy) får `compactToolbar`, allt annat den breda raden ovan. Samma
+    /// vy och samma åtgärder - bara presentationen skiljer.
+    @ViewBuilder
+    private var toolbar: some View {
+        if isCompact {
+            compactToolbar
+        } else {
+            regularToolbar
+        }
+    }
+
+    /// iPhone: historik som små ikonknappar, verktygen som ett rutnät med
+    /// ikon över en kort text (inga radbrytningar), och Spara/Dela som en
+    /// fullbredds hero-rad längst ner.
+    private var compactToolbar: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Button {
+                    viewModel.undo()
+                } label: {
+                    Label(L("Ångra"), systemImage: "arrow.uturn.backward").labelStyle(.iconOnly)
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(!viewModel.canUndo)
+
+                Button {
+                    viewModel.redo()
+                } label: {
+                    Label(L("Gör om"), systemImage: "arrow.uturn.forward").labelStyle(.iconOnly)
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(!viewModel.canRedo)
+
+                Button {
+                    viewModel.restoreOriginal()
+                } label: {
+                    Label(L("Återställ till original"), systemImage: "arrow.counterclockwise").labelStyle(.iconOnly)
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(!hasChanges)
+            }
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                compactToolButton(L("Bakgrund"), systemImage: "photo.fill", disabled: viewModel.originalImage == nil) {
+                    showBackgroundStylePicker = true
+                }
+                compactToolButton(L("Form"), systemImage: "square.on.circle", disabled: viewModel.originalImage == nil) {
+                    showShapePicker = true
+                }
+                compactToolButton(L("Filter"), systemImage: "camera.filters", disabled: viewModel.originalImage == nil) {
+                    showPhotoFilters = true
+                }
+                compactToolButton(L("Justera"), systemImage: "slider.horizontal.3", disabled: viewModel.originalImage == nil) {
+                    showAdjustments = true
+                }
+                compactToolButton(L("Finjustera"), systemImage: "paintbrush", disabled: viewModel.processedImage == nil) {
+                    viewModel.beginMaskEditing()
+                }
+                if viewModel.hasMultipleSubjects {
+                    compactToolButton(L("Motiv…"), systemImage: "checkmark.circle") {
+                        viewModel.reopenSubjectPicker()
+                    }
+                }
+                compactToolButton(L("Text"), systemImage: "textformat", disabled: viewModel.originalImage == nil) {
+                    viewModel.ensureTextOverlay()
+                    showTextEditor = true
+                }
+                compactToolButton(L("Logo"), systemImage: "photo.badge.plus", disabled: viewModel.originalImage == nil) {
+                    showLogoImporter = true
+                }
+                Menu {
+                    formatMenuItems
+                } label: {
+                    compactToolLabel(L("Format"), systemImage: "gearshape")
+                }
+                .tint(.primary)
+                .disabled(viewModel.originalImage == nil)
+                .opacity(viewModel.originalImage == nil ? 0.4 : 1)
+            }
+
+            exportCluster(expands: true)
+        }
+    }
+
+    private func compactToolButton(
+        _ title: String,
+        systemImage: String,
+        disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            compactToolLabel(title, systemImage: systemImage)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+        .disabled(disabled)
+        .opacity(disabled ? 0.4 : 1)
+    }
+
+    private func compactToolLabel(_ title: String, systemImage: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20))
+                .frame(height: 24)
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .foregroundStyle(.primary)
+        .frame(maxWidth: .infinity, minHeight: 56)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
     }
 
     private var handledContent: some View {
@@ -311,7 +475,6 @@ struct DetailPanel: View {
             showPhotoFilters = false
             showAdjustments = false
             showTextEditor = false
-            showColorPicker = false
         }
         .onChange(of: showTextEditor) { _, isPresented in
             if !isPresented {
@@ -423,10 +586,6 @@ struct DetailPanel: View {
                     showBackgroundStylePicker = false
                     viewModel.beginRepositioningCustomBackground()
                 },
-                onPickMoreColors: {
-                    showBackgroundStylePicker = false
-                    showColorPicker = true
-                },
                 onDone: { showBackgroundStylePicker = false },
                 loadPreviewMask: { await viewModel.previewMask() }
             )
@@ -439,42 +598,32 @@ struct DetailPanel: View {
                 baseImage: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
                 transform: viewModel.outputShapeTransform,
                 currentPreset: viewModel.shapePreset,
-                onSelect: { viewModel.setShapePreset($0) },
+                isLayoutFilterActive: viewModel.photoFilter.isLayoutStyle,
+                onSelect: { preset in
+                    if preset.contour == .freeform {
+                        // Frihand: rita först konturen i egen ruta.
+                        showShapePicker = false
+                        showFreeformDrawer = true
+                    } else {
+                        viewModel.setShapePreset(preset)
+                    }
+                },
                 onDone: { showShapePicker = false }
             )
         }
     }
 
-    // Bara "Fler färger…" (en godtycklig färg via systemets ColorPicker)
-    // kvar här - de förvalda färgerna visas nu som RIKTIGA
-    // förhandsgranskningar i `BackgroundStylePickerView`s eget rutnät
-    // istället för en dubblett-uppsättning cirklar här (rapporterat
-    // 2026-09-26).
-    @ViewBuilder private var colorSheet: some View {
-        VStack(spacing: 20) {
-            Text(L("Fler färger"))
-                .font(.headline)
-
-            ColorPicker(
-                L("Bakgrundsfärg"),
-                selection: Binding(
-                    get: {
-                        if case .color(let color) = viewModel.backgroundStyle { return color }
-                        return .white
-                    },
-                    set: { viewModel.setBackgroundStyle(.color($0)) }
-                ),
-                supportsOpacity: false
+    @ViewBuilder private var freeformSheet: some View {
+        if let original = viewModel.originalImage {
+            FreeformDrawView(
+                baseImage: viewModel.compositedImage ?? viewModel.adjustedPreviewImage ?? original,
+                onDone: { path in
+                    showFreeformDrawer = false
+                    viewModel.setShapePreset(.freeform(path))
+                },
+                onCancel: { showFreeformDrawer = false }
             )
-
-            HStack {
-                Spacer()
-                Button(L("Klart")) { showColorPicker = false }
-                    .keyboardShortcut(.defaultAction)
-            }
         }
-        .padding(24)
-        .frame(minWidth: 320, minHeight: 160)
     }
 
     /// Sant när `SubjectFramingCanvas` visas (samma villkor som i `ScrollView`s
@@ -532,51 +681,41 @@ struct DetailPanel: View {
         .disabled(viewModel.originalImage == nil)
     }
 
-    /// Det ihopslagna Spara+Dela-hero-klustret (20%) - EN pill med två
-    /// segment, avdelade av en tunn linje, istället för två separata
-    /// knappar - matchar "Export" som EN samlad, designad nyckel-action i
-    /// mockupen, inte två likvärdiga verktygsknappar.
-    private var exportCluster: some View {
-        HStack(spacing: 0) {
+    /// Spara + Dela - två SEPARATA hero-piller bredvid varandra (inte en
+    /// ihopslagen pill, det läste som EN knapp, rapporterat 2026-09-29).
+    private func exportCluster(expands: Bool = false) -> some View {
+        HStack(spacing: 8) {
             Button {
                 viewModel.save()
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "square.and.arrow.down.fill")
-                    Text(L("Spara"))
-                }
-                .padding(.horizontal, 13)
-                .padding(.vertical, 7)
+                exportLabel(L("Spara"), systemImage: "square.and.arrow.down.fill", expands: expands)
             }
             .buttonStyle(.heroSegment)
             .disabled(viewModel.originalImage == nil)
 
-            Rectangle()
-                .fill(AppTheme.onAccent.opacity(0.35))
-                .frame(width: 1, height: 16)
-
             if let shareURL = viewModel.shareURL {
                 ShareLink(item: shareURL) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "square.and.arrow.up.fill")
-                        Text(L("Dela"))
-                    }
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 7)
+                    exportLabel(L("Dela"), systemImage: "square.and.arrow.up.fill", expands: expands)
                 }
                 .buttonStyle(.heroSegment)
             } else {
-                HStack(spacing: 6) {
-                    Image(systemName: "square.and.arrow.up.fill")
-                    Text(L("Dela"))
-                }
-                .padding(.horizontal, 13)
-                .padding(.vertical, 7)
-                .opacity(0.5)
+                exportLabel(L("Dela"), systemImage: "square.and.arrow.up.fill", expands: expands)
+                    .opacity(0.5)
             }
         }
         .font(.callout.weight(.semibold))
         .foregroundStyle(AppTheme.onAccent)
+        .frame(maxWidth: expands ? .infinity : nil)
+    }
+
+    private func exportLabel(_ title: String, systemImage: String, expands: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+            Text(title).lineLimit(1).fixedSize()
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 7)
+        .frame(maxWidth: expands ? .infinity : nil)
         .background(Capsule(style: .continuous).fill(AppTheme.accent))
         .shadow(color: AppTheme.accent.opacity(0.3), radius: 6, y: 2)
     }
@@ -604,15 +743,20 @@ struct DetailPanel: View {
     /// `.tint(.primary)` sätts uttryckligen på SJÄLVA `Menu`-vyn (inte bara i
     /// dess `label:`-innehåll) för att neutralisera systemets accentfärg på
     /// kontrollens egen krom - se buggs.md 2026-09-26.
+    @ViewBuilder
+    private var formatMenuItems: some View {
+        ForEach(ImageExportFormat.allCases) { format in
+            Button {
+                viewModel.setExportFormat(format)
+            } label: {
+                Label(format.label, systemImage: format == viewModel.exportFormat ? "checkmark" : "circle")
+            }
+        }
+    }
+
     private var formatMenu: some View {
         Menu {
-            ForEach(ImageExportFormat.allCases) { format in
-                Button {
-                    viewModel.setExportFormat(format)
-                } label: {
-                    Label(format.label, systemImage: format == viewModel.exportFormat ? "checkmark" : "circle")
-                }
-            }
+            formatMenuItems
         } label: {
             ToolbarChrome(tier: .native) {
                 Label(L("Format"), systemImage: "gearshape")
@@ -630,7 +774,7 @@ struct DetailPanel: View {
 /// från start.
 private struct SubjectFramingCanvas: View {
     let image: PlatformImage
-    let shape: OutputShape
+    let shape: AnyShape
     let aspectRatio: CGFloat
     let backgroundStyle: BackgroundOption
     let originalImage: PlatformImage
@@ -662,7 +806,7 @@ private struct SubjectFramingCanvas: View {
     }
 
     var body: some View {
-        ManipulableImageView(image: image, clipShape: shape.swiftUIShape, transform: $transform, onCommit: onCommit, allowsExposedEdges: true)
+        ManipulableImageView(image: image, clipShape: shape, transform: $transform, onCommit: onCommit, allowsExposedEdges: true)
             // Ett tryck utanför texten avmarkerar den (texten själv tar
             // sina egna tryck, se `TextOverlayLayer`).
             // `simultaneousGesture` (inte `onTapGesture`) så tryckigenkänningen
@@ -682,33 +826,48 @@ private struct SubjectFramingCanvas: View {
             }
             // Bakgrunden klipps till formens siluett (som i exporten) - annars
             // syns bakgrundsfärgen utanför t.ex. en åttahörning/cirkel.
-            .background(backgroundLayer.clipShape(shape.swiftUIShape))
+            .background(backgroundLayer.clipShape(shape))
             .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    /// Logotypen under, texten överst - samma ordning som i exporten.
+    /// Logotypen under texten (standard) eller över den (`isInFront`) -
+    /// samma ordning som i exporten. Lagerknappen visas bara när BÅDA
+    /// finns; sist i `ZStack` = överst.
     @ViewBuilder
     private func overlayLayers(containerSize: CGSize) -> some View {
+        let hasBoth = logoOverlay != nil && textOverlay != nil
+        let logoInFront = logoOverlay?.isInFront == true
         ZStack {
+            if logoInFront { textLayer(containerSize: containerSize, hasBoth: hasBoth) }
             if let logoBinding = Binding($logoOverlay) {
                 LogoOverlayLayer(
                     logo: logoBinding,
                     isSelected: isSelected(.logo),
                     containerSize: containerSize,
                     onCommit: onOverlayCommit,
-                    onDelete: onLogoDelete
+                    onDelete: onLogoDelete,
+                    onBringToFront: hasBoth ? { logoOverlay?.isInFront = true; onOverlayCommit() } : nil,
+                    onSendBack: hasBoth ? { logoOverlay?.isInFront = false; onOverlayCommit() } : nil
                 )
             }
-            if let overlayBinding = Binding($textOverlay) {
-                TextOverlayLayer(
-                    overlay: overlayBinding,
-                    isSelected: isSelected(.text),
-                    containerSize: containerSize,
-                    onCommit: onOverlayCommit,
-                    onEdit: onTextEdit,
-                    onDelete: onTextDelete
-                )
-            }
+            if !logoInFront { textLayer(containerSize: containerSize, hasBoth: hasBoth) }
+        }
+    }
+
+    @ViewBuilder
+    private func textLayer(containerSize: CGSize, hasBoth: Bool) -> some View {
+        if let overlayBinding = Binding($textOverlay) {
+            TextOverlayLayer(
+                overlay: overlayBinding,
+                isSelected: isSelected(.text),
+                containerSize: containerSize,
+                onCommit: onOverlayCommit,
+                onEdit: onTextEdit,
+                onDelete: onTextDelete,
+                // Text "överst" = logotypen under (och tvärtom).
+                onBringToFront: hasBoth ? { logoOverlay?.isInFront = false; onOverlayCommit() } : nil,
+                onSendBack: hasBoth ? { logoOverlay?.isInFront = true; onOverlayCommit() } : nil
+            )
         }
     }
 

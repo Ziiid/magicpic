@@ -17,12 +17,16 @@ struct BackgroundStylePickerView: View {
     let onSelect: (BackgroundOption) -> Void
     let onPickCustomImage: () -> Void
     let onRepositionCustomImage: () -> Void
-    let onPickMoreColors: () -> Void
     let onDone: () -> Void
     let loadPreviewMask: () async -> BackgroundRemovalService.ForegroundMask?
 
     @State private var thumbnails: [OptionKey: PlatformImage] = [:]
     @State private var didFailToLoadMask = false
+
+    // Egen färg: systemets `ColorPicker` visas UNDER "Egen färg…" i samma
+    // ruta (inte i ett separat sheet - rapporterat 2026-10-10 som
+    // förvirrande), så hela färgvalet sker på ett ställe.
+    @State private var showsCustomColor = false
 
     private enum OptionKey: Hashable {
         case transparent
@@ -56,8 +60,14 @@ struct BackgroundStylePickerView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text(L("Bakgrund"))
-                .font(.headline)
+            VStack(spacing: 4) {
+                Text(L("Bakgrund"))
+                    .font(.headline)
+                Text(L("Tryck på ett alternativ för att prova det. Tryck Klart när du är nöjd."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
 
             if didFailToLoadMask {
                 Text(L("Kunde inte analysera bilden för förhandsvisning. Prova igen."))
@@ -97,12 +107,16 @@ struct BackgroundStylePickerView: View {
 
             VStack(spacing: 8) {
                 Button {
-                    onPickMoreColors()
+                    withAnimation { showsCustomColor.toggle() }
                 } label: {
-                    Label(L("Fler färger…"), systemImage: "paintpalette")
+                    Label(L("Egen färg…"), systemImage: "paintpalette")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.nativeToolbar)
+
+                if showsCustomColor {
+                    customColorControls
+                }
 
                 Button {
                     onPickCustomImage()
@@ -130,8 +144,27 @@ struct BackgroundStylePickerView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 360, idealWidth: 440, minHeight: 460, idealHeight: 560)
+        .frame(minWidth: 360, idealWidth: 440, minHeight: 520, idealHeight: 660)
         .task { await generateThumbnails() }
+    }
+
+    private var customColorControls: some View {
+        ColorPicker(
+            L("Bakgrundsfärg"),
+            selection: Binding(
+                get: {
+                    if case .color(let color) = currentStyle { return color }
+                    return .white
+                },
+                set: { onSelect(.color($0)) }
+            ),
+            supportsOpacity: false
+        )
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.secondary.opacity(0.08))
+        )
     }
 
     @ViewBuilder

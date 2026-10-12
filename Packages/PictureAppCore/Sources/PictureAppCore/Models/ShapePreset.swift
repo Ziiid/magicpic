@@ -1,10 +1,11 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 
 /// Ett val i formväljaren - antingen en PRAKTISK genväg (t.ex. "LinkedIn-
 /// profil", fast bildförhållande OCH fast exportpixelstorlek) eller en
 /// GENERISK geometrisk form (`OutputShape.allCases` - Rektangel/Kvadrat/
-/// Avrundad kvadrat/Cirkel/Hexagon/Oktagon, fri storlek härledd från
+/// Avrundad kvadrat/Cirkel/Hexagon/Oktagon/Stjärna, fri storlek härledd från
 /// källbilden, precis som innan den här typen fanns). Medvetet EN typ för
 /// båda - siluetten (`contour`) och "vilket bildförhållande/pixelmål"
 /// (`aspectRatio`/`pixelSize`) var redan två separata begrepp i koden
@@ -22,15 +23,37 @@ public struct ShapePreset: Identifiable, Equatable {
     /// pixelstorleken vid export, se `PlatformImage.resized(to:)` och
     /// `SearchViewModel.applyPipeline`.
     public let pixelSize: CGSize?
+    /// Den ritade konturen när `contour == .freeform` (`nil` = ännu inte
+    /// ritad).
+    public let freeform: FreeformPath?
 
-    public init(id: String, contour: OutputShape, aspectRatio: CGFloat?, pixelSize: CGSize?) {
+    public init(id: String, contour: OutputShape, aspectRatio: CGFloat?, pixelSize: CGSize?, freeform: FreeformPath? = nil) {
         self.id = id
         self.contour = contour
         self.aspectRatio = aspectRatio
         self.pixelSize = pixelSize
+        self.freeform = freeform
     }
 
-    public static func == (lhs: ShapePreset, rhs: ShapePreset) -> Bool { lhs.id == rhs.id }
+    public static func == (lhs: ShapePreset, rhs: ShapePreset) -> Bool {
+        lhs.id == rhs.id && lhs.freeform == rhs.freeform
+    }
+
+    /// Frihand: bildens egna proportioner, ritad kontur.
+    public static let freeformPlaceholder = ShapePreset(id: OutputShape.freeform.rawValue, contour: .freeform, aspectRatio: nil, pixelSize: nil)
+
+    public static func freeform(_ path: FreeformPath) -> ShapePreset {
+        ShapePreset(id: OutputShape.freeform.rawValue, contour: .freeform, aspectRatio: nil, pixelSize: nil, freeform: path)
+    }
+
+    /// SwiftUI-konturen för förhandsvisning/klippning - `OutputShape`s egen,
+    /// eller den ritade konturen för Frihand.
+    public var silhouetteShape: AnyShape {
+        if contour == .freeform, let freeform {
+            return AnyShape(FreeformContour(path: freeform))
+        }
+        return contour.swiftUIShape
+    }
 
     /// `String(localized:...)` UPPLÖST PER ANROP, inte en lagrad sträng -
     /// presets skapas EN gång som statiska konstanter, så en lagrad sträng
@@ -60,6 +83,9 @@ public struct ShapePreset: Identifiable, Equatable {
             let ratio = Self.reducedRatioText(width: pixelSize.width, height: pixelSize.height)
             return "\(ratio) · \(Int(pixelSize.width)) × \(Int(pixelSize.height))"
         }
+        if contour == .freeform {
+            return String(localized: "Rita en egen kontur", bundle: .module, locale: AppLanguage.current.locale)
+        }
         guard let aspectRatio else {
             return String(localized: "Bildens egna proportioner", bundle: .module, locale: AppLanguage.current.locale)
         }
@@ -82,9 +108,9 @@ public struct ShapePreset: Identifiable, Equatable {
     /// Cirkel/Hexagon/Oktagon) förblir EXAKT oförändrade (samma kontur,
     /// samma namn, fri storlek härledd från källbilden) - inget dupliceras
     /// för hand.
-    private static let genericPresets: [ShapePreset] = OutputShape.allCases.map { shape in
+    private static let genericPresets: [ShapePreset] = OutputShape.allCases.filter { $0 != .freeform }.map { shape in
         ShapePreset(id: shape.rawValue, contour: shape, aspectRatio: shape == .rectangle ? nil : 1, pixelSize: nil)
-    }
+    } + [freeformPlaceholder]
 
     /// De sju praktiska genvägarna - alla `.square`-kontur (vanlig
     /// rektangel, ingen extra formsiluett) UTOM "Profilbild (cirkel)".
@@ -113,4 +139,11 @@ public struct ShapePreset: Identifiable, Equatable {
     /// `SearchViewModel.shapePreset`s dokumentation för varför kvadrat,
     /// inte rektangel, är default).
     public static let square = ShapePreset(id: OutputShape.square.rawValue, contour: .square, aspectRatio: 1, pixelSize: nil)
+}
+
+private struct FreeformContour: Shape {
+    let path: FreeformPath
+    func path(in rect: CGRect) -> Path {
+        Path(path.cgPath(in: rect))
+    }
 }

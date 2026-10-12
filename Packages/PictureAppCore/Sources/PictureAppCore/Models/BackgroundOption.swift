@@ -22,10 +22,8 @@ public enum BackgroundOption: Equatable {
         }
     }
 
-    /// Förvalda bakgrundsfärger - delad mellan `BackgroundStylePickerView`s
-    /// rutnät med riktiga förhandsgranskningar och den enkla färgcirkel-
-    /// rutan i DetailPanels "Fler färger…"-sheet, så de alltid visar samma
-    /// urval.
+    /// Förvalda bakgrundsfärger i `BackgroundStylePickerView`s rutnät med
+    /// riktiga förhandsgranskningar.
     public static let presetColors: [Color] = [
         .white, .black, .gray, .red, .orange, .yellow,
         .green, .mint, .teal, .blue, .purple, .pink,
