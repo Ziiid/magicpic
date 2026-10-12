@@ -2363,6 +2363,56 @@
           }
         }
       }
+    },
+    "Original" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original"
+          }
+        }
+      }
+    },
+    "Håll nedtryckt för att visa originalet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Press and hold to show the original"
+          }
+        }
+      }
+    },
+    "Dra ut" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag out"
+          }
+        }
+      }
+    },
+    "Dra hit-ifrån till Finder eller en annan app för att släppa bilden som en fil." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag from here to Finder or another app to drop the image as a file."
+          }
+        }
+      }
+    },
+    "Öppna bild…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Image…"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -181,6 +181,13 @@ och `CLAUDE.md` för arkitektur/vägval.
   ("Motiv…") är inte tillgänglig direkt efter återupptagning (Visions råa
   detektering sparas inte). Inte testad på enhet ännu.
 
+- **Före/efter, dra ut, Mac-meny (2026-10-12).** Ögonknappen under bilden
+  visar originalet medan den hålls nedtryckt (`showsOriginal`, overlay ovanpå
+  ramningsytan). "Dra ut"-handtaget drar den färdiga filen (`shareURL`) till
+  Finder/annan app via `onDrag`. Mac-menyrad: Öppna bild… (⌘O), Spara (⌘S),
+  Ångra/Gör om (⌘Z/⇧⌘Z) via `EditorActions` + `focusedSceneValue`. Obs: ⌘Z i
+  menyn ersätter systemets textfälts-ångra. Inte testad ännu.
+
 ## Kvar
 
 5. Batch-bearbetning av flera bilder samtidigt. Ursprungligen tänkt som

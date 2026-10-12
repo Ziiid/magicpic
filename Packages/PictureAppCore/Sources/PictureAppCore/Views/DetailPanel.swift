@@ -9,6 +9,8 @@ struct DetailPanel: View {
     @State private var showBackgroundStylePicker = false
     @State private var showShapePicker = false
     @State private var showFreeformDrawer = false
+    // Sant medan "visa original"-knappen hålls nedtryckt.
+    @State private var showsOriginal = false
     @State private var showTextEditor = false
     @State private var showLogoImporter = false
     #if os(iOS)
@@ -127,6 +129,27 @@ struct DetailPanel: View {
                             onLogoDelete: { viewModel.removeLogo() }
                         )
                         .padding()
+                        // Håll "visa original"-knappen nedtryckt: originalet
+                        // läggs OVANPÅ (canvasen finns kvar under, så
+                        // markering/ramning inte nollställs).
+                        .overlay {
+                            if showsOriginal {
+                                ZStack(alignment: .top) {
+                                    Rectangle().fill(.background)
+                                    Image(platformImage: original)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .padding()
+                                    Text(L("Original"))
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(Capsule().fill(.thinMaterial))
+                                        .padding(.top, 8)
+                                }
+                                .allowsHitTesting(false)
+                            }
+                        }
                     }
                 } else {
                     Text(L("Kunde inte ladda bilden."))
@@ -185,6 +208,27 @@ struct DetailPanel: View {
                     }
                     .buttonStyle(.nativeToolbar)
                     .help(L("Spegelvänd bilden"))
+
+                    // Håll nedtryckt = jämför med originalet (före/efter).
+                    ToolbarChrome(tier: .native) {
+                        Label(L("Håll nedtryckt för att visa originalet"), systemImage: "eye")
+                            .labelStyle(.iconOnly)
+                    }
+                    .opacity(hasChanges ? 1 : 0.4)
+                    .onLongPressGesture(minimumDuration: 0, maximumDistance: 80, pressing: { pressing in
+                        showsOriginal = pressing && hasChanges
+                    }, perform: {})
+                    .help(L("Håll nedtryckt för att visa originalet"))
+
+                    // Dra den färdiga bilden som en fil till Finder/annan app.
+                    // Egen handtagsyta - att dra i själva bilden panorerar den.
+                    if let shareURL = viewModel.shareURL {
+                        ToolbarChrome(tier: .native) {
+                            Label(L("Dra ut"), systemImage: "arrow.up.forward.square")
+                        }
+                        .onDrag { NSItemProvider(contentsOf: shareURL) ?? NSItemProvider() }
+                        .help(L("Dra hit-ifrån till Finder eller en annan app för att släppa bilden som en fil."))
+                    }
                 }
             }
 

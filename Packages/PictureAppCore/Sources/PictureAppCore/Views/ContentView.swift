@@ -34,6 +34,15 @@ public struct ContentView: View {
     public var body: some View {
         platformLayout
             .task { await viewModel.refreshSavedSessionAvailability() }
+            .focusedSceneValue(\.editorActions, EditorActions(
+                openImage: { showImageSourceDialog = true },
+                save: { viewModel.save() },
+                undo: { viewModel.undo() },
+                redo: { viewModel.redo() },
+                canSave: viewModel.originalImage != nil,
+                canUndo: viewModel.canUndo,
+                canRedo: viewModel.canRedo
+            ))
             .onAppear {
                 if !hasSeenOnboarding { showOnboarding = true }
             }
