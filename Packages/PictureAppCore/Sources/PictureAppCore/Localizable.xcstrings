@@ -2413,6 +2413,66 @@
           }
         }
       }
+    },
+    "Effekter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effects"
+          }
+        }
+      }
+    },
+    "Skugga och kontur på motivet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shadow and outline on the subject."
+          }
+        }
+      }
+    },
+    "Skugga och kontur" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shadow and outline"
+          }
+        }
+      }
+    },
+    "Kontur" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outline"
+          }
+        }
+      }
+    },
+    "Konturfärg" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outline color"
+          }
+        }
+      }
+    },
+    "Ta bort effekter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove effects"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

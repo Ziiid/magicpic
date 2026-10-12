@@ -56,6 +56,8 @@ public final class SearchViewModel: ObservableObject {
     // OCH ett valfritt bildförhållande/exportpixelmål (praktiska genvägar
     // som "LinkedIn-profil") - se `ShapePreset`s egen dokumentation.
     @Published public var shapePreset: ShapePreset = .square
+    /// Skugga/kontur på motivets urklipp - se `SubjectEffects`.
+    @Published public var subjectEffects: SubjectEffects = .none
     @Published public var outputShapeTransform: CanvasTransform = .identity
     /// Texten som ligger ovanpå bilden (`nil` = ingen). Ändras LIVE via
     /// bindningar i `DetailPanel` (dra/skriva) utan att köra pipelinen -
@@ -119,6 +121,7 @@ public final class SearchViewModel: ObservableObject {
         let photoFilter: PhotoFilter
         let imageAdjustments: ImageAdjustments
         let shapePreset: ShapePreset
+        let subjectEffects: SubjectEffects
         var outputShapeTransform: CanvasTransform
         var textOverlay: TextOverlay?
         var logoOverlay: LogoOverlay?
@@ -133,6 +136,7 @@ public final class SearchViewModel: ObservableObject {
     private let photoFilterService = PhotoFilterService()
     private let textOverlayService = TextOverlayService()
     private let logoOverlayService = LogoOverlayService()
+    private let subjectEffectService = SubjectEffectService()
     // Ökas för varje refreshEditPreview()-anrop så att en sen, ren
     // förhandsvisningskörning (utan Vision) inte skriver över en nyare -
     // samma mönster som `backgroundGeneration`.
@@ -338,13 +342,14 @@ public final class SearchViewModel: ObservableObject {
         let shapeTransform = outputShapeTransform
         let filter = photoFilter
         let adjustments = imageAdjustments
+        let effects = subjectEffects
         let overlay = textOverlay
         let logo = logoOverlay
 
         backgroundGeneration += 1
         let generation = backgroundGeneration
 
-        Task.detached(priority: .userInitiated) { [backgroundRemoval, shapeCrop, photoFilterService, imageAdjustment, textOverlayService, logoOverlayService] in
+        Task.detached(priority: .userInitiated) { [backgroundRemoval, shapeCrop, photoFilterService, imageAdjustment, textOverlayService, logoOverlayService, subjectEffectService] in
             do {
                 let looked = try photoFilterService.colorLook(filter, to: original)
                 let adjustedCG = try imageAdjustment.apply(adjustments, to: looked).cgImageRepresentation
@@ -353,7 +358,10 @@ public final class SearchViewModel: ObservableObject {
                 // Motivet, urklippt mot en GENOMSKINLIG bakgrund - det som
                 // panoreras i `SubjectFramingCanvas` (se `subjectCutoutImage`s
                 // dokumentation) OCH det som positioneras i kanvasen nedan.
-                let cutout = try backgroundRemoval.composite(mask, background: .transparent, foregroundImage: adjustedCG)
+                let plainCutout = try backgroundRemoval.composite(mask, background: .transparent, foregroundImage: adjustedCG)
+                // Skugga/kontur bakas in i urklippet så att förhandsvisning
+                // och export blir identiska och följer motivet.
+                let cutout = try subjectEffectService.apply(effects, to: plainCutout)
 
                 // Positionera/beskär URKLIPPET (inte hela bilden) i kanvasen -
                 // `allowsExposedEdges: true` (redan satt i `ShapeCropService`)
@@ -510,6 +518,7 @@ public final class SearchViewModel: ObservableObject {
         photoFilter = .none
         imageAdjustments = .identity
         shapePreset = .square
+        subjectEffects = .none
         outputShapeTransform = .identity
         lastCommittedTransform = .identity
         textOverlay = nil
@@ -638,6 +647,14 @@ public final class SearchViewModel: ObservableObject {
         if processedImage != nil {
             removeBackground()
         }
+    }
+
+    /// Sätter skugga/kontur på motivet och kör om pipelinen (ett undo-steg).
+    public func setSubjectEffects(_ effects: SubjectEffects) {
+        guard effects != subjectEffects else { return }
+        pushUndoSnapshot()
+        subjectEffects = effects
+        removeBackground()
     }
 
     /// Anropas när användaren släpper en dra-/nyp-/rotationsgest i den
@@ -859,6 +876,7 @@ public final class SearchViewModel: ObservableObject {
         photoFilter = .none
         imageAdjustments = .identity
         shapePreset = .square
+        subjectEffects = .none
         outputShapeTransform = .identity
         errorMessage = nil
         isLoadingDetail = false
@@ -1165,12 +1183,20 @@ public final class SearchViewModel: ObservableObject {
             mask = BackgroundRemovalService.ForegroundMask(original: cg, mask: buffer)
         }
 
+        let effects: SubjectEffects
+        if let e = saved.effects, e.count == 2 {
+            effects = SubjectEffects(shadow: e[0], outlineWidth: e[1], outlineColor: Color(srgbComponents: saved.outlineColor ?? []))
+        } else {
+            effects = .none
+        }
+
         exportFormat = ImageExportFormat(rawValue: saved.exportFormat) ?? .png
         let snapshot = EditSnapshot(
             backgroundStyle: background,
             photoFilter: PhotoFilter(rawValue: saved.photoFilter) ?? .none,
             imageAdjustments: adjustments,
             shapePreset: preset,
+            subjectEffects: effects,
             outputShapeTransform: saved.transform.canvasTransform,
             textOverlay: text,
             logoOverlay: logo,
@@ -1236,6 +1262,8 @@ public final class SearchViewModel: ObservableObject {
             background: background,
             photoFilter: photoFilter.rawValue,
             adjustments: [a.brightness, a.contrast, a.saturation, a.temperature, a.highlights, a.shadows, a.sharpness, a.noiseReduction, a.vignette],
+            effects: [subjectEffects.shadow, subjectEffects.outlineWidth],
+            outlineColor: subjectEffects.outlineColor.srgbComponents,
             shapeID: shapePreset.id,
             freeform: shapePreset.freeform.map { $0.points.map { [Double($0.x), Double($0.y)] } },
             transform: .init(outputShapeTransform),
@@ -1261,6 +1289,7 @@ public final class SearchViewModel: ObservableObject {
             photoFilter: photoFilter,
             imageAdjustments: imageAdjustments,
             shapePreset: shapePreset,
+            subjectEffects: subjectEffects,
             outputShapeTransform: outputShapeTransform,
             textOverlay: textOverlay,
             logoOverlay: logoOverlay,
@@ -1342,6 +1371,7 @@ public final class SearchViewModel: ObservableObject {
         photoFilter = snapshot.photoFilter
         imageAdjustments = snapshot.imageAdjustments
         shapePreset = snapshot.shapePreset
+        subjectEffects = snapshot.subjectEffects
         outputShapeTransform = snapshot.outputShapeTransform
         lastCommittedTransform = snapshot.outputShapeTransform
         textOverlay = snapshot.textOverlay

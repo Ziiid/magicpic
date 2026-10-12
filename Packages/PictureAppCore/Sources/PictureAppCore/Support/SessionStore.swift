@@ -31,6 +31,8 @@ actor SessionStore {
         var background: SavedBackground
         var photoFilter: String
         var adjustments: [Double]
+        var effects: [Double]?
+        var outlineColor: [Double]?
         var shapeID: String
         var freeform: [[Double]]?
         var transform: SavedTransform

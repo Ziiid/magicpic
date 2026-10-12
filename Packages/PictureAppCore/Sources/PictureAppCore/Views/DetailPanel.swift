@@ -5,6 +5,7 @@ struct DetailPanel: View {
     @ObservedObject var viewModel: SearchViewModel
     @State private var showBackgroundImporter = false
     @State private var showAdjustments = false
+    @State private var showEffects = false
     @State private var showPhotoFilters = false
     @State private var showBackgroundStylePicker = false
     @State private var showShapePicker = false
@@ -329,6 +330,15 @@ struct DetailPanel: View {
                 .disabled(viewModel.originalImage == nil)
                 .help(L("Ljusstyrka, kontrast, mättnad, skärpa, temperatur, highlights/shadows, brusreducering, vinjett."))
 
+                Button {
+                    showEffects = true
+                } label: {
+                    Label(L("Effekter"), systemImage: "sparkles")
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(viewModel.originalImage == nil)
+                .help(L("Skugga och kontur på motivet."))
+
                 // Native, INTE hero - penseln KORRIGERAR vad Vision
                 // missade, den är inte appens primära löfte (det är
                 // Bakgrund + Exportera, se motiveringen vid
@@ -439,6 +449,9 @@ struct DetailPanel: View {
                 compactToolButton(L("Justera"), systemImage: "slider.horizontal.3", disabled: viewModel.originalImage == nil) {
                     showAdjustments = true
                 }
+                compactToolButton(L("Effekter"), systemImage: "sparkles", disabled: viewModel.originalImage == nil) {
+                    showEffects = true
+                }
                 compactToolButton(L("Finjustera"), systemImage: "paintbrush", disabled: viewModel.processedImage == nil) {
                     viewModel.beginMaskEditing()
                 }
@@ -527,6 +540,7 @@ struct DetailPanel: View {
             showShapePicker = false
             showPhotoFilters = false
             showAdjustments = false
+            showEffects = false
             showTextEditor = false
         }
         .onChange(of: showTextEditor) { _, isPresented in
@@ -596,6 +610,14 @@ struct DetailPanel: View {
                     loadPreviewMask: { await viewModel.previewMask() }
                 )
             }
+        }
+        .sheet(isPresented: $showEffects) {
+            SubjectEffectsView(
+                previewImage: viewModel.subjectCutoutImage ?? viewModel.adjustedPreviewImage ?? viewModel.originalImage,
+                initial: viewModel.subjectEffects,
+                onChange: { viewModel.setSubjectEffects($0) },
+                onDone: { showEffects = false }
+            )
         }
         .sheet(isPresented: $showAdjustments) {
             ImageAdjustmentsView(
