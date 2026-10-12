@@ -170,6 +170,17 @@ och `CLAUDE.md` för arkitektur/vägval.
   ligger under bilden men UTANFÖR skrollytan så alla moment går att göra med
   bara mus. Inte testad på enhet ännu.
 
+- **Spara/återuppta pågående redigering (2026-10-12).** Senaste
+  redigeringen autosparas (debouncad 1,5 s) till appens Application Support
+  (`SessionStore`: `session.json` + `original.png`/`mask.png`/`logo.png`/
+  `background.png`) och erbjuds som "Fortsätt där du slutade" i tomtillståndet
+  (Egen bild) när appen startar. Sparar bild, bakgrund, filter, justeringar,
+  form (inkl. Frihand), position, text, logotyp + lagerordning, motivval och
+  den färdiga masken inkl. penselredigeringar. Ångra-historiken sparas INTE.
+  En enda session (den senaste) - ingen projektlista än. Motivväljaren
+  ("Motiv…") är inte tillgänglig direkt efter återupptagning (Visions råa
+  detektering sparas inte). Inte testad på enhet ännu.
+
 ## Kvar
 
 5. Batch-bearbetning av flera bilder samtidigt. Ursprungligen tänkt som

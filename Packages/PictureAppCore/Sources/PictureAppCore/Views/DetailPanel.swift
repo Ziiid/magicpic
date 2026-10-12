@@ -176,6 +176,15 @@ struct DetailPanel: View {
                     }
                     .buttonStyle(.nativeToolbar)
                     .help(L("Vrid åt höger"))
+
+                    Button {
+                        viewModel.mirrorSubject()
+                    } label: {
+                        Label(L("Spegelvänd bilden"), systemImage: "flip.horizontal")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.nativeToolbar)
+                    .help(L("Spegelvänd bilden"))
                 }
             }
 
@@ -887,6 +896,8 @@ private struct SubjectFramingCanvas: View {
             CheckerboardBackground()
         case .color(let color):
             color
+        case .gradient(let preset):
+            preset.linearGradient
         case .blurredOriginal:
             Image(platformImage: originalImage)
                 .resizable()

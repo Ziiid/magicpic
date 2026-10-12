@@ -52,6 +52,7 @@ struct ManipulableImageView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(width: containerSize.width, height: containerSize.height)
+                .scaleEffect(x: transform.isMirrored ? -1 : 1, y: 1)
                 .rotationEffect(rotation)
                 .scaleEffect(scale)
                 .offset(offset)

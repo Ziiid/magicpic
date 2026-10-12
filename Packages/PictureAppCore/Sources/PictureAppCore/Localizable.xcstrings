@@ -2223,6 +2223,146 @@
           }
         }
       }
+    },
+    "Kunde inte öppna den sparade redigeringen." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't open the saved edit."
+          }
+        }
+      }
+    },
+    "Fortsätt där du slutade" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue where you left off"
+          }
+        }
+      }
+    },
+    "Kasta sparad redigering" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discard saved edit"
+          }
+        }
+      }
+    },
+    "Spegelvänd bilden" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flip image"
+          }
+        }
+      }
+    },
+    "1. Välj en bild" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Choose an image"
+          }
+        }
+      }
+    },
+    "Hämta en bild från Foton, kameran, webben eller AI - eller klistra in en bild du kopierat." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get an image from Photos, the camera, the web or AI - or paste one you've copied."
+          }
+        }
+      }
+    },
+    "2. Gör den till din" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2. Make it yours"
+          }
+        }
+      }
+    },
+    "Byt eller ta bort bakgrunden, välj form och filter, lägg på text eller en logotyp. Dra, zooma och vrid direkt på bilden." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap or remove the background, pick a shape and filter, add text or a logo. Drag, zoom and rotate right on the image."
+          }
+        }
+      }
+    },
+    "3. Spara eller dela" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3. Save or share"
+          }
+        }
+      }
+    },
+    "Tryck Spara eller Dela när du är nöjd. Din pågående redigering sparas automatiskt, så du kan fortsätta senare." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Save or Share when you're happy. Your edit is saved automatically, so you can continue later."
+          }
+        }
+      }
+    },
+    "Hoppa över" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip"
+          }
+        }
+      }
+    },
+    "Nästa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        }
+      }
+    },
+    "Kom igång" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get started"
+          }
+        }
+      }
+    },
+    "Visa introduktionen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show introduction"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

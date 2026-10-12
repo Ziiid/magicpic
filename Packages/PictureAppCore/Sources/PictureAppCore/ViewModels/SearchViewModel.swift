@@ -12,6 +12,11 @@ public final class SearchViewModel: ObservableObject {
     /// sparning - annars sker sparningen tyst.
     @Published public var saveConfirmation: String?
     private var saveConfirmationToken = 0
+    /// Sant när det finns en sparad, pågående redigering på disk att
+    /// återuppta (visas som "Fortsätt där du slutade" i tomtillståndet) - se
+    /// `SessionStore`.
+    @Published public private(set) var hasSavedSession = false
+    private var autosaveTask: Task<Void, Never>?
 
     @Published public var selectedItem: SearchResultItem?
     @Published public var originalImage: PlatformImage?
@@ -655,6 +660,11 @@ public final class SearchViewModel: ObservableObject {
         lastCommittedTransform = outputShapeTransform
         if processedImage != nil {
             removeBackground()
+        } else {
+            // Ingen bakgrundsborttagning körd - exportbilden byggs då av
+            // `framedWithOverlays` (se `currentExportImage`), så delningsfilen
+            // måste skrivas om för att följa position/spegling.
+            refreshShareURL()
         }
     }
 
@@ -739,6 +749,15 @@ public final class SearchViewModel: ObservableObject {
     public func rotateSubject(byDegrees degrees: Double) {
         var transform = outputShapeTransform
         transform.rotation += .degrees(degrees)
+        outputShapeTransform = transform
+        commitOutputShapeTransform()
+    }
+
+    /// Speglar motivet i formramningen horisontellt (växlar) - samma väg som
+    /// en gest: sätt transformen och committa (ett undo-steg).
+    public func mirrorSubject() {
+        var transform = outputShapeTransform
+        transform.isMirrored.toggle()
         outputShapeTransform = transform
         commitOutputShapeTransform()
     }
@@ -903,7 +922,7 @@ public final class SearchViewModel: ObservableObject {
         if let processedImage { return processedImage }
         let base = adjustedPreviewImage ?? originalImage
         let text = textOverlay?.hasContent == true ? textOverlay : nil
-        guard let base, text != nil || logoOverlay != nil else { return base }
+        guard let base, text != nil || logoOverlay != nil || outputShapeTransform != .identity else { return base }
         return Self.framedWithOverlays(logo: logoOverlay, text: text, on: base, preset: shapePreset, transform: outputShapeTransform, shapeCrop: shapeCrop, logoService: logoOverlayService, textService: textOverlayService)
     }
 
@@ -1007,6 +1026,7 @@ public final class SearchViewModel: ObservableObject {
     /// litet reglageutslag i bildkorrigeringspanelen, vilket skulle skriva
     /// om filen orimligt ofta under en dra-gest.
     private func refreshShareURL() {
+        scheduleAutosave()
         shareGeneration += 1
         let generation = shareGeneration
         let fileName = exportFileName()
@@ -1027,7 +1047,7 @@ public final class SearchViewModel: ObservableObject {
             let image: PlatformImage?
             if let processed {
                 image = processed
-            } else if let base, overlay != nil || logo != nil {
+            } else if let base, overlay != nil || logo != nil || transform != .identity {
                 image = Self.framedWithOverlays(logo: logo, text: overlay, on: base, preset: preset, transform: transform, shapeCrop: shapeCrop, logoService: logoOverlayService, textService: textOverlayService)
             } else {
                 image = base
@@ -1044,6 +1064,193 @@ public final class SearchViewModel: ObservableObject {
                 self.shareURL = url
             }
         }
+    }
+
+    // MARK: - Spara/återuppta pågående redigering
+
+    /// Kollar om en sparad session finns - anropas när appen startar.
+    public func refreshSavedSessionAvailability() async {
+        hasSavedSession = await SessionStore.shared.hasSession()
+    }
+
+    /// Kastar den sparade sessionen (användaren vill börja om).
+    public func discardSavedSession() async {
+        autosaveTask?.cancel()
+        await SessionStore.shared.clear()
+        hasSavedSession = false
+    }
+
+    /// Läser in den sparade sessionen och återställer ALLA redigeringsval -
+    /// bild, bakgrund, filter, justeringar, form, position, text, logotyp,
+    /// motivval och den färdiga masken (inkl. penselredigeringar). Ångra-
+    /// historiken sparas inte; den börjar om från det återupptagna läget.
+    public func resumeSavedSession() async {
+        isLoadingDetail = true
+        guard let loaded = await SessionStore.shared.load() else {
+            isLoadingDetail = false
+            hasSavedSession = false
+            errorMessage = L("Kunde inte öppna den sparade redigeringen.")
+            return
+        }
+        let saved = loaded.session
+
+        loadImportedImage(loaded.original, name: saved.title)
+
+        let background: BackgroundOption
+        switch saved.background.kind {
+        case "color": background = .color(Color(srgbComponents: saved.background.color ?? []))
+        case "blurred": background = .blurredOriginal
+        case "gradient":
+            if let preset = GradientPreset.all.first(where: { $0.id == saved.background.gradientID }) {
+                background = .gradient(preset)
+            } else {
+                background = .transparent
+            }
+        case "custom":
+            if let image = loaded.backgroundImage {
+                background = .custom(image, transform: saved.background.transform?.canvasTransform ?? .identity)
+            } else {
+                background = .transparent
+            }
+        default: background = .transparent
+        }
+
+        let a = saved.adjustments
+        let adjustments = a.count == 9
+            ? ImageAdjustments(
+                brightness: a[0], contrast: a[1], saturation: a[2], temperature: a[3], highlights: a[4],
+                shadows: a[5], sharpness: a[6], noiseReduction: a[7], vignette: a[8]
+            )
+            : .identity
+
+        let preset: ShapePreset
+        if saved.shapeID == OutputShape.freeform.rawValue {
+            if let points = saved.freeform {
+                preset = .freeform(FreeformPath(points: points.compactMap { $0.count == 2 ? CGPoint(x: $0[0], y: $0[1]) : nil }))
+            } else {
+                preset = .freeformPlaceholder
+            }
+        } else {
+            preset = ShapePreset.all.first { $0.id == saved.shapeID } ?? .square
+        }
+
+        var text: TextOverlay?
+        if let t = saved.text {
+            text = TextOverlay(
+                text: t.text,
+                fontStyle: TextFontStyle(rawValue: t.fontStyle) ?? .heavy,
+                color: Color(srgbComponents: t.color),
+                size: CGFloat(t.size),
+                offset: CGSize(width: t.offsetX, height: t.offsetY),
+                rotation: .degrees(t.rotationDegrees),
+                hasShadow: t.hasShadow
+            )
+        }
+
+        var logo: LogoOverlay?
+        if let l = saved.logo, let image = loaded.logoImage {
+            var overlay = LogoOverlay(
+                image: image,
+                size: CGFloat(l.size),
+                offset: CGSize(width: l.offsetX, height: l.offsetY),
+                rotation: .degrees(l.rotationDegrees),
+                isFlipped: l.isFlipped
+            )
+            overlay.isInFront = l.isInFront
+            logo = overlay
+        }
+
+        var mask: BackgroundRemovalService.ForegroundMask?
+        if let buffer = loaded.mask, let cg = loaded.original.cgImageRepresentation {
+            mask = BackgroundRemovalService.ForegroundMask(original: cg, mask: buffer)
+        }
+
+        exportFormat = ImageExportFormat(rawValue: saved.exportFormat) ?? .png
+        let snapshot = EditSnapshot(
+            backgroundStyle: background,
+            photoFilter: PhotoFilter(rawValue: saved.photoFilter) ?? .none,
+            imageAdjustments: adjustments,
+            shapePreset: preset,
+            outputShapeTransform: saved.transform.canvasTransform,
+            textOverlay: text,
+            logoOverlay: logo,
+            selectedSubjectIDs: saved.selectedSubjectIDs.map(Set.init),
+            cachedMask: mask
+        )
+        apply(snapshot)
+        isLoadingDetail = false
+    }
+
+    /// Debouncad autosparning - skrivs någon sekund efter SENASTE ändringen
+    /// (anropad från `updateUndoRedoAvailability()`/`refreshShareURL()`, som
+    /// tillsammans täcker allt som ändrar redigeringen). Gör inget förrän en
+    /// bild är inläst, så en äldre sparad session inte skrivs över av ett
+    /// tomt läge vid appstart.
+    private func scheduleAutosave() {
+        guard originalImage != nil else { return }
+        autosaveTask?.cancel()
+        autosaveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !Task.isCancelled, let self, let input = self.makeSessionInput() else { return }
+            await SessionStore.shared.write(input)
+            self.hasSavedSession = true
+        }
+    }
+
+    private func makeSessionInput() -> SessionStore.Input? {
+        guard let original = originalImage else { return nil }
+
+        var background = SessionStore.SavedBackground(kind: "transparent", color: nil, gradientID: nil, transform: nil)
+        var backgroundImage: PlatformImage?
+        switch backgroundStyle {
+        case .transparent: break
+        case .color(let color): background = .init(kind: "color", color: color.srgbComponents, gradientID: nil, transform: nil)
+        case .blurredOriginal: background = .init(kind: "blurred", color: nil, gradientID: nil, transform: nil)
+        case .gradient(let preset): background = .init(kind: "gradient", color: nil, gradientID: preset.id, transform: nil)
+        case .custom(let image, let transform):
+            background = .init(kind: "custom", color: nil, gradientID: nil, transform: .init(transform))
+            backgroundImage = image
+        }
+
+        var text: SessionStore.SavedText?
+        if let t = textOverlay, t.hasContent {
+            text = .init(
+                text: t.text, fontStyle: t.fontStyle.rawValue, color: t.color.srgbComponents, size: Double(t.size),
+                offsetX: Double(t.offset.width), offsetY: Double(t.offset.height),
+                rotationDegrees: t.rotation.degrees, hasShadow: t.hasShadow
+            )
+        }
+
+        var logo: SessionStore.SavedLogo?
+        if let l = logoOverlay {
+            logo = .init(
+                size: Double(l.size), offsetX: Double(l.offset.width), offsetY: Double(l.offset.height),
+                rotationDegrees: l.rotation.degrees, isFlipped: l.isFlipped, isInFront: l.isInFront
+            )
+        }
+
+        let a = imageAdjustments
+        let session = SessionStore.SavedSession(
+            title: selectedItem?.title ?? "bild",
+            exportFormat: exportFormat.rawValue,
+            background: background,
+            photoFilter: photoFilter.rawValue,
+            adjustments: [a.brightness, a.contrast, a.saturation, a.temperature, a.highlights, a.shadows, a.sharpness, a.noiseReduction, a.vignette],
+            shapeID: shapePreset.id,
+            freeform: shapePreset.freeform.map { $0.points.map { [Double($0.x), Double($0.y)] } },
+            transform: .init(outputShapeTransform),
+            text: text,
+            logo: logo,
+            selectedSubjectIDs: selectedSubjectIDs.map { Array($0).sorted() },
+            hasMask: false,
+            savedAt: Date()
+        )
+
+        let mask = (cachedMaskSource === original) ? cachedMask : nil
+        return SessionStore.Input(
+            session: session, original: original, mask: mask,
+            logoImage: logoOverlay?.image, backgroundImage: backgroundImage
+        )
     }
 
     // MARK: - Undo/redo
@@ -1099,6 +1306,7 @@ public final class SearchViewModel: ObservableObject {
     private func updateUndoRedoAvailability() {
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
+        scheduleAutosave()
     }
 
     /// Öppnar en "session" (Justera-panelen eller Filter-väljaren) - sparar

@@ -78,6 +78,8 @@ public struct BackgroundRemovalService {
         case transparent
         case color(CGColor)
         case blurredOriginal(radius: Double = 30)
+        /// Tvåfärgad lineär gradient; punkterna i enhetskoordinater (y nedåt).
+        case gradient(start: CGColor, end: CGColor, startPoint: CGPoint, endPoint: CGPoint)
         case custom(PlatformImage, transform: CanvasTransform = .identity)
     }
 
@@ -316,6 +318,23 @@ public struct BackgroundRemovalService {
 
         case .color(let cgColor):
             return CIImage(color: CIColor(cgColor: cgColor)).cropped(to: extent)
+
+        case .gradient(let start, let end, let startPoint, let endPoint):
+            guard let gradientFilter = CIFilter(name: "CILinearGradient") else {
+                throw RemovalError(message: "Kunde inte skapa bildfilter.")
+            }
+            // Enhetskoordinater (y nedåt) -> CoreImage (y uppåt) i `extent`.
+            func point(_ p: CGPoint) -> CIVector {
+                CIVector(x: extent.minX + p.x * extent.width, y: extent.minY + (1 - p.y) * extent.height)
+            }
+            gradientFilter.setValue(point(startPoint), forKey: "inputPoint0")
+            gradientFilter.setValue(point(endPoint), forKey: "inputPoint1")
+            gradientFilter.setValue(CIColor(cgColor: start), forKey: "inputColor0")
+            gradientFilter.setValue(CIColor(cgColor: end), forKey: "inputColor1")
+            guard let gradient = gradientFilter.outputImage else {
+                throw RemovalError(message: "Kunde inte skapa bildfilter.")
+            }
+            return gradient.cropped(to: extent)
 
         case .blurredOriginal(let radius):
             guard let blurFilter = CIFilter(name: "CIGaussianBlur") else {

@@ -32,6 +32,7 @@ struct BackgroundStylePickerView: View {
         case transparent
         case blurred
         case color(Color)
+        case gradient(String)
     }
 
     private struct Option {
@@ -54,6 +55,9 @@ struct BackgroundStylePickerView: View {
         ]
         for color in BackgroundOption.presetColors {
             result.append(Option(key: .color(color), style: .color(color), label: nil))
+        }
+        for preset in GradientPreset.all {
+            result.append(Option(key: .gradient(preset.id), style: .gradient(preset), label: nil))
         }
         return result
     }

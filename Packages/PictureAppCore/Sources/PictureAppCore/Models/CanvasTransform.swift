@@ -11,6 +11,8 @@ public struct CanvasTransform: Equatable {
     public var offset: CGSize
     public var scale: CGFloat
     public var rotation: Angle
+    /// Speglad horisontellt (runt bildens egen mitt, FÖRE rotationen).
+    public var isMirrored: Bool
 
     public static let identity = CanvasTransform(offset: .zero, scale: 1, rotation: .zero)
 
@@ -24,10 +26,11 @@ public struct CanvasTransform: Equatable {
     /// aldrig kan hamna i otakt med varandra.
     public static let minScale: CGFloat = 0.15
 
-    public init(offset: CGSize = .zero, scale: CGFloat = 1, rotation: Angle = .zero) {
+    public init(offset: CGSize = .zero, scale: CGFloat = 1, rotation: Angle = .zero, isMirrored: Bool = false) {
         self.offset = offset
         self.scale = scale
         self.rotation = rotation
+        self.isMirrored = isMirrored
     }
 
     /// Roterar, skalar och beskär `image` mot `target`, justerad med denna
@@ -58,12 +61,18 @@ public struct CanvasTransform: Equatable {
     ///   återanvänds någon annanstans senare utan att uttryckligen ta
     ///   ställning.
     public func scaledToFill(_ image: CIImage, target: CGRect, allowsExposedEdges: Bool = false) -> CIImage {
+        // Spegling FÖRST (inom bildens egen extent), sedan rotation - samma
+        // ordning som `ManipulableImageView` (scaleEffect(x:-1) före
+        // rotationEffect).
+        let source: CIImage = isMirrored
+            ? image.transformed(by: CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: image.extent.minX + image.extent.maxX, ty: 0))
+            : image
         let rotated: CIImage
         if rotation == .zero {
-            rotated = image
+            rotated = source
         } else {
-            let center = CGPoint(x: image.extent.midX, y: image.extent.midY)
-            rotated = image
+            let center = CGPoint(x: source.extent.midX, y: source.extent.midY)
+            rotated = source
                 .transformed(by: CGAffineTransform(translationX: -center.x, y: -center.y))
                 .transformed(by: CGAffineTransform(rotationAngle: CGFloat(rotation.radians)))
         }

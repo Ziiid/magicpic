@@ -11,6 +11,10 @@ public struct ContentView: View {
     @State private var photosPickerItem: PhotosPickerItem?
     @State private var showCamera = false
     @State private var showSettings = false
+    @State private var showOnboarding = false
+    // Sätts till `true` när introduktionen setts (eller hoppats över) - visas
+    // bara första gången; kan öppnas igen från Inställningar.
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     // Appens EGET mörkt/ljust-läge, oberoende av systemets - `nil`-läget
     // ("följ systemet") finns medvetet INTE med; användaren bad om EN
     // switch (på/av), inte en tredelad väljare.
@@ -29,6 +33,16 @@ public struct ContentView: View {
 
     public var body: some View {
         platformLayout
+            .task { await viewModel.refreshSavedSessionAvailability() }
+            .onAppear {
+                if !hasSeenOnboarding { showOnboarding = true }
+            }
+            .sheet(isPresented: $showOnboarding) {
+                OnboardingView {
+                    hasSeenOnboarding = true
+                    showOnboarding = false
+                }
+            }
             .preferredColorScheme(useDarkMode ? .dark : .light)
             .environment(\.locale, appLanguage.locale)
             .confirmationDialog(L("Välj bildkälla"), isPresented: $showImageSourceDialog, titleVisibility: .visible) {
@@ -161,7 +175,10 @@ public struct ContentView: View {
         }
         .padding(12)
         .sheet(isPresented: $showSettings) {
-            SettingsView(useDarkMode: $useDarkMode, appLanguage: $appLanguage, generators: $generatorsList)
+            SettingsView(useDarkMode: $useDarkMode, appLanguage: $appLanguage, generators: $generatorsList, onShowIntro: {
+                showSettings = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { showOnboarding = true }
+            })
         }
     }
 
@@ -281,6 +298,25 @@ public struct ContentView: View {
                 Label(L("Välj bild…"), systemImage: "photo.badge.plus")
             }
             .buttonStyle(.borderedProminent)
+
+            // Återuppta senaste, automatiskt sparade redigeringen.
+            if viewModel.hasSavedSession, viewModel.selectedItem == nil {
+                HStack(spacing: 12) {
+                    Button {
+                        Task { await viewModel.resumeSavedSession() }
+                    } label: {
+                        Label(L("Fortsätt där du slutade"), systemImage: "clock.arrow.circlepath")
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button(L("Kasta sparad redigering")) {
+                        Task { await viewModel.discardSavedSession() }
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 

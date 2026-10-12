@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Binding var useDarkMode: Bool
     @Binding var appLanguage: AppLanguage
     @Binding var generators: AIImageGeneratorList
+    var onShowIntro: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var newName = ""
     @State private var newURL = ""
@@ -23,6 +24,10 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+
+                if let onShowIntro {
+                    Button(L("Visa introduktionen")) { onShowIntro() }
+                }
 
                 Section(L("AI-bildgeneratorer")) {
                     ForEach(generators.items) { generator in
