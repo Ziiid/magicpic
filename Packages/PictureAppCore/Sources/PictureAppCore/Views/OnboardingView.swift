@@ -78,7 +78,7 @@ struct OnboardingView: View {
             }
         }
         .padding(28)
-        .frame(minWidth: 380, idealWidth: 440, minHeight: 380, idealHeight: 420)
+        .sheetFrame(minWidth: 380, idealWidth: 440, minHeight: 380, idealHeight: 420)
         .interactiveDismissDisabled()
     }
 }

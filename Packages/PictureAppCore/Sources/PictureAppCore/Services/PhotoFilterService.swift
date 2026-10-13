@@ -189,7 +189,7 @@ public struct PhotoFilterService {
             output = try Self.photoboothMonoLook(source)
         }
 
-        let context = CIContext()
+        let context = SharedCIContext.shared
         guard let outputCGImage = context.createCGImage(output, from: extent) else {
             throw FilterError(message: "Kunde inte rendera det filtrerade resultatet.")
         }
@@ -314,7 +314,7 @@ public struct PhotoFilterService {
         let positioned = photo.transformed(by: CGAffineTransform(translationX: sideBorder, y: bottomBorder))
         let card = positioned.composited(over: frameColor)
 
-        guard let outputCGImage = CIContext().createCGImage(card, from: canvasExtent) else {
+        guard let outputCGImage = SharedCIContext.shared.createCGImage(card, from: canvasExtent) else {
             throw FilterError(message: "Kunde inte rendera Polaroid-ramen.")
         }
         return PlatformImage(cgImageRepresentation: outputCGImage)
@@ -376,7 +376,7 @@ public struct PhotoFilterService {
             composed = positioned.composited(over: composed)
         }
 
-        guard let outputCGImage = CIContext().createCGImage(composed, from: stripExtent) else {
+        guard let outputCGImage = SharedCIContext.shared.createCGImage(composed, from: stripExtent) else {
             throw FilterError(message: "Kunde inte rendera fotoautomat-remsan.")
         }
         return PlatformImage(cgImageRepresentation: outputCGImage)

@@ -99,6 +99,6 @@ struct ImagePositionerView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 380, idealWidth: 460, minHeight: 520, idealHeight: 640)
+        .sheetFrame(minWidth: 380, idealWidth: 460, minHeight: 520, idealHeight: 640)
     }
 }

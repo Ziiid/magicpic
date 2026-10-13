@@ -218,7 +218,7 @@ actor SessionStore {
 
     private static func maskPNG(_ buffer: CVPixelBuffer) -> Data? {
         let ci = CIImage(cvPixelBuffer: buffer)
-        guard let cg = CIContext().createCGImage(
+        guard let cg = SharedCIContext.shared.createCGImage(
             ci, from: ci.extent, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray()
         ) else { return nil }
         let data = NSMutableData()

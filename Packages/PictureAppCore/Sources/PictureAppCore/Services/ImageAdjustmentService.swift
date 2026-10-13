@@ -112,7 +112,7 @@ public struct ImageAdjustmentService {
             current = output
         }
 
-        let context = CIContext()
+        let context = SharedCIContext.shared
         guard let outputCGImage = context.createCGImage(current, from: extent) else {
             throw AdjustmentError(message: "Kunde inte rendera den justerade bilden.")
         }

@@ -76,7 +76,7 @@ public struct SubjectEffectService {
             result = layer.composited(over: result)
         }
 
-        let context = CIContext()
+        let context = SharedCIContext.shared
         guard let output = context.createCGImage(result, from: extent) else {
             throw EffectError(message: "Kunde inte rendera resultatet.")
         }

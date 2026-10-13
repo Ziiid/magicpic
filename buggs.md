@@ -795,3 +795,30 @@ visar `compositedImage ?? originalImage`. Se `DetailPanel.swift` och
 användaren redan sett (med rätt bakgrund), inte hoppa tillbaka till ett
 tidigare bearbetningssteg - annars tolkas det som att en åtgärd
 "ångrades" även om inget faktiskt gick förlorat.
+
+## 2026-10-13: iPhone-test - Justera stängde appen, sheets skars av, liten bildyta
+
+**Symptom (första riktiga iPhone-testet):** (1) Att dra i reglagen i
+"Justera" stängde appen. (2) "Finjustera" och flera sheets var bredare än
+skärmen - reglagen/knapparna skars av i kanterna. (3) Bildytan i förhandsvisningen
+var extremt liten. (4) Det gick inte att se vad man målade i Finjustera -
+tummen täckte penselringen.
+
+**Rotorsak:** (1) Varje reglageutslag körde HELA pipelinen på en
+full-upplöst bild (filter + justeringar med en NY `CIContext` per rendering,
+PNG-kodning av delningsfilen, ev. hela Vision-/kompositeringsflödet) - många
+samtidiga jobb tog slut på minnet och iOS dödade appen. (2) Jag satte
+`minWidth: 820` på Finjustera (och andra sheets hade 380-520) för Mac - på en
+iPhone (~390 pt) blev innehållet bredare än skärmen. (3) Bilden låg i en
+`ScrollView` och fick bara överblivet utrymme efter att den höga verktygsraden
+tagit sitt; dessutom bröt zoom-/jämför-raden bredden. (4) Penseln målade
+direkt under fingret.
+
+**Fix:** (1) `previewImageAdjustments` (billig, nedskalad live-förhandsvisning,
+ett jobb i taget) medan reglaget dras; full körning först vid släpp. En delad
+`SharedCIContext` ersätter nya `CIContext()` överallt. (2) `sheetFrame(...)`
+(Support/PlatformFrame.swift) - fasta storlekar bara på macOS. (3) iPhone:
+ingen hjälptext/ScrollView, bilden fyller ytan; verktygsraden är bara ikoner
+(5 kolumner) och historik+vy ligger i en rad. (4) På iOS målar penseln
+`fingerOffset` (72 pt) ovanför fingret, med en streckad linje ner till det.
+Inte omtestad på enhet ännu.

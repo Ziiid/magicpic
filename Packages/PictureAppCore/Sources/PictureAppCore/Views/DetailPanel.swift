@@ -63,99 +63,117 @@ struct DetailPanel: View {
             .padding(.horizontal)
     }
 
+    /// Själva förhandsvisningen (laddar/layoutvisning/ramningsyta). På
+    /// iPhone fyller den ytan under rubriken direkt; på bredare skärmar ligger
+    /// den i en `ScrollView`.
+    @ViewBuilder
+    private var previewContent: some View {
+        if viewModel.isLoadingDetail {
+            ProgressView(L("Laddar bild…"))
+                .padding(40)
+        } else if viewModel.photoFilter.isLayoutStyle, viewModel.compositedImage == nil,
+                  let preview = viewModel.adjustedPreviewImage {
+            // Polaroid/Fotoautomat FÖRE bakgrundsborttagning körts -
+            // `adjustedPreviewImage` är då redan HELA den inramade/
+            // staplade bilden (se `PhotoFilterService.apply`), inte
+            // bara motivet - visa den oklippt i sitt EGNA
+            // bildförhållande istället för att tvinga in den i den
+            // kvadrat-/formklippande `SubjectFramingCanvas` nedan
+            // (en hög, smal fotoautomat-remsa blev annars beskuren
+            // till bara mitten av remsan, rapporterat 2026-09-26).
+            // Ingen drag-/nyp-ramning här - det finns inget att
+            // positionera, ramen/remsan ÄR redan slutresultatet.
+            Image(platformImage: preview)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .padding()
+        } else if let original = viewModel.originalImage {
+            // Alltid den inbäddade, dra-/nyp-/vridbara ramningsytan -
+            // inget separat "justera position"-läge att växla till.
+            // Källan är motivets GENOMSKINLIGA urklipp när det finns
+            // (`subjectCutoutImage`), annars det obehandlade
+            // originalet - INTE `compositedImage` (som har vald
+            // bakgrund bakad in över hela originalets rektangel).
+            // `SubjectFramingCanvas` ritar istället vald bakgrund
+            // som ett eget, FAST lager bakom urklippet, så bakgrunden
+            // fyller hela kanvasen oavsett var urklippet panorerats -
+            // se `SearchViewModel.applyPipeline`s och
+            // `subjectCutoutImage`s dokumentation, samt `buggs.md`.
+            VStack(spacing: 8) {
+                SubjectFramingCanvas(
+                    image: viewModel.subjectCutoutImage ?? viewModel.adjustedPreviewImage ?? original,
+                    shape: viewModel.shapePreset.silhouetteShape,
+                    aspectRatio: viewModel.shapePreset.aspectRatio ?? previewAspectRatio,
+                    backgroundStyle: viewModel.backgroundStyle,
+                    originalImage: original,
+                    transform: $viewModel.outputShapeTransform,
+                    textOverlay: $viewModel.textOverlay,
+                    logoOverlay: $viewModel.logoOverlay,
+                    onCommit: { viewModel.commitOutputShapeTransform() },
+                    onOverlayCommit: { viewModel.commitOverlays() },
+                    onTextEdit: { if !showTextEditor { showTextEditor = true } },
+                    onTextDelete: {
+                        viewModel.textOverlay = nil
+                        viewModel.commitOverlays()
+                    },
+                    onLogoDelete: { viewModel.removeLogo() }
+                )
+                .padding()
+                // Håll "visa original"-knappen nedtryckt: originalet
+                // läggs OVANPÅ (canvasen finns kvar under, så
+                // markering/ramning inte nollställs).
+                .overlay {
+                    if showsOriginal {
+                        ZStack(alignment: .top) {
+                            Rectangle().fill(.background)
+                            Image(platformImage: original)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .padding()
+                            Text(L("Original"))
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(.thinMaterial))
+                                .padding(.top, 8)
+                        }
+                        .allowsHitTesting(false)
+                    }
+                }
+            }
+        } else {
+            Text(L("Kunde inte ladda bilden."))
+                .foregroundStyle(.secondary)
+                .padding(40)
+        }
+    
+    }
+
     private var baseContent: some View {
         VStack(spacing: 12) {
             // Hjälptexten ligger FAST ovanför ramningsytan (utanför
             // `ScrollView`) - under bilden hamnade den utom synhåll för
             // höga former som rektangel (rapporterat 2026-10-10).
             if showsFramingCanvas {
-                Text(L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                // Inte på iPhone - där behöver bilden all höjd (introduktionen
+                // förklarar gesterna).
+                if !isCompact {
+                    Text(L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
             } else if viewModel.photoFilter.isLayoutStyle, viewModel.originalImage != nil {
                 layoutStyleNotice
             }
 
-            ScrollView {
-                if viewModel.isLoadingDetail {
-                    ProgressView(L("Laddar bild…"))
-                        .padding(40)
-                } else if viewModel.photoFilter.isLayoutStyle, viewModel.compositedImage == nil,
-                          let preview = viewModel.adjustedPreviewImage {
-                    // Polaroid/Fotoautomat FÖRE bakgrundsborttagning körts -
-                    // `adjustedPreviewImage` är då redan HELA den inramade/
-                    // staplade bilden (se `PhotoFilterService.apply`), inte
-                    // bara motivet - visa den oklippt i sitt EGNA
-                    // bildförhållande istället för att tvinga in den i den
-                    // kvadrat-/formklippande `SubjectFramingCanvas` nedan
-                    // (en hög, smal fotoautomat-remsa blev annars beskuren
-                    // till bara mitten av remsan, rapporterat 2026-09-26).
-                    // Ingen drag-/nyp-ramning här - det finns inget att
-                    // positionera, ramen/remsan ÄR redan slutresultatet.
-                    Image(platformImage: preview)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .padding()
-                } else if let original = viewModel.originalImage {
-                    // Alltid den inbäddade, dra-/nyp-/vridbara ramningsytan -
-                    // inget separat "justera position"-läge att växla till.
-                    // Källan är motivets GENOMSKINLIGA urklipp när det finns
-                    // (`subjectCutoutImage`), annars det obehandlade
-                    // originalet - INTE `compositedImage` (som har vald
-                    // bakgrund bakad in över hela originalets rektangel).
-                    // `SubjectFramingCanvas` ritar istället vald bakgrund
-                    // som ett eget, FAST lager bakom urklippet, så bakgrunden
-                    // fyller hela kanvasen oavsett var urklippet panorerats -
-                    // se `SearchViewModel.applyPipeline`s och
-                    // `subjectCutoutImage`s dokumentation, samt `buggs.md`.
-                    VStack(spacing: 8) {
-                        SubjectFramingCanvas(
-                            image: viewModel.subjectCutoutImage ?? viewModel.adjustedPreviewImage ?? original,
-                            shape: viewModel.shapePreset.silhouetteShape,
-                            aspectRatio: viewModel.shapePreset.aspectRatio ?? previewAspectRatio,
-                            backgroundStyle: viewModel.backgroundStyle,
-                            originalImage: original,
-                            transform: $viewModel.outputShapeTransform,
-                            textOverlay: $viewModel.textOverlay,
-                            logoOverlay: $viewModel.logoOverlay,
-                            onCommit: { viewModel.commitOutputShapeTransform() },
-                            onOverlayCommit: { viewModel.commitOverlays() },
-                            onTextEdit: { if !showTextEditor { showTextEditor = true } },
-                            onTextDelete: {
-                                viewModel.textOverlay = nil
-                                viewModel.commitOverlays()
-                            },
-                            onLogoDelete: { viewModel.removeLogo() }
-                        )
-                        .padding()
-                        // Håll "visa original"-knappen nedtryckt: originalet
-                        // läggs OVANPÅ (canvasen finns kvar under, så
-                        // markering/ramning inte nollställs).
-                        .overlay {
-                            if showsOriginal {
-                                ZStack(alignment: .top) {
-                                    Rectangle().fill(.background)
-                                    Image(platformImage: original)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .padding()
-                                    Text(L("Original"))
-                                        .font(.caption.weight(.semibold))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 4)
-                                        .background(Capsule().fill(.thinMaterial))
-                                        .padding(.top, 8)
-                                }
-                                .allowsHitTesting(false)
-                            }
-                        }
-                    }
-                } else {
-                    Text(L("Kunde inte ladda bilden."))
-                        .foregroundStyle(.secondary)
-                        .padding(40)
+            if isCompact {
+                previewContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    previewContent
                 }
             }
 
@@ -163,7 +181,7 @@ struct DetailPanel: View {
             // hamnar de under bilden och syns bara om man scrollar när
             // verktygsraderna nedanför tar mycket höjd (rapporterat efter att
             // Logo-knappen fick rad 2 att brytas till två rader).
-            if showsFramingCanvas {
+            if showsFramingCanvas, !isCompact {
                 HStack(spacing: 8) {
                     Button {
                         viewModel.zoomSubject(by: 1 / 1.15)
@@ -227,6 +245,7 @@ struct DetailPanel: View {
                         ToolbarChrome(tier: .native) {
                             Label(L("Dra ut"), systemImage: "arrow.up.forward.square")
                         }
+                        .fixedSize()
                         .onDrag { NSItemProvider(contentsOf: shareURL) ?? NSItemProvider() }
                         .help(L("Dra hit-ifrån till Finder eller en annan app för att släppa bilden som en fil."))
                     }
@@ -405,38 +424,15 @@ struct DetailPanel: View {
         }
     }
 
-    /// iPhone: historik som små ikonknappar, verktygen som ett rutnät med
-    /// ikon över en kort text (inga radbrytningar), och Spara/Dela som en
-    /// fullbredds hero-rad längst ner.
+    /// iPhone: ALLT som ikoner (ingen text under knapparna) för att ge
+    /// bilden så mycket höjd som möjligt - en rad med historik + vy
+    /// (zooma/vrid/spegla/jämför), ett rutnät med verktyg i fem kolumner,
+    /// och Spara/Dela som en fullbredds hero-rad längst ner.
     private var compactToolbar: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Button {
-                    viewModel.undo()
-                } label: {
-                    Label(L("Ångra"), systemImage: "arrow.uturn.backward").labelStyle(.iconOnly)
-                }
-                .buttonStyle(.nativeToolbar)
-                .disabled(!viewModel.canUndo)
+        VStack(spacing: 8) {
+            compactActionRow
 
-                Button {
-                    viewModel.redo()
-                } label: {
-                    Label(L("Gör om"), systemImage: "arrow.uturn.forward").labelStyle(.iconOnly)
-                }
-                .buttonStyle(.nativeToolbar)
-                .disabled(!viewModel.canRedo)
-
-                Button {
-                    viewModel.restoreOriginal()
-                } label: {
-                    Label(L("Återställ till original"), systemImage: "arrow.counterclockwise").labelStyle(.iconOnly)
-                }
-                .buttonStyle(.nativeToolbar)
-                .disabled(!hasChanges)
-            }
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
                 compactToolButton(L("Bakgrund"), systemImage: "photo.fill", disabled: viewModel.originalImage == nil) {
                     showBackgroundStylePicker = true
                 }
@@ -481,6 +477,74 @@ struct DetailPanel: View {
         }
     }
 
+    /// Historik (ångra/gör om/återställ) och vy (zooma/vrid/spegla/jämför)
+    /// i EN rad av små ikonknappar.
+    private var compactActionRow: some View {
+        HStack(spacing: 4) {
+            compactIconButton(L("Ångra"), systemImage: "arrow.uturn.backward", disabled: !viewModel.canUndo) {
+                viewModel.undo()
+            }
+            compactIconButton(L("Gör om"), systemImage: "arrow.uturn.forward", disabled: !viewModel.canRedo) {
+                viewModel.redo()
+            }
+            compactIconButton(L("Återställ till original"), systemImage: "arrow.counterclockwise", disabled: !hasChanges) {
+                viewModel.restoreOriginal()
+            }
+
+            if showsFramingCanvas {
+                Divider().frame(height: 22)
+
+                compactIconButton(L("Zooma ut"), systemImage: "minus.magnifyingglass") {
+                    viewModel.zoomSubject(by: 1 / 1.15)
+                }
+                compactIconButton(L("Zooma in"), systemImage: "plus.magnifyingglass") {
+                    viewModel.zoomSubject(by: 1.15)
+                }
+                compactIconButton(L("Vrid åt vänster"), systemImage: "rotate.left") {
+                    viewModel.rotateSubject(byDegrees: -SearchViewModel.rotationStepDegrees)
+                }
+                compactIconButton(L("Vrid åt höger"), systemImage: "rotate.right") {
+                    viewModel.rotateSubject(byDegrees: SearchViewModel.rotationStepDegrees)
+                }
+                compactIconButton(L("Spegelvänd bilden"), systemImage: "flip.horizontal") {
+                    viewModel.mirrorSubject()
+                }
+
+                // Håll nedtryckt = jämför med originalet.
+                Image(systemName: "eye")
+                    .font(.system(size: 16))
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
+                    .opacity(hasChanges ? 1 : 0.4)
+                    .contentShape(Rectangle())
+                    .onLongPressGesture(minimumDuration: 0, maximumDistance: 80, pressing: { pressing in
+                        showsOriginal = pressing && hasChanges
+                    }, perform: {})
+                    .accessibilityLabel(L("Håll nedtryckt för att visa originalet"))
+            }
+        }
+    }
+
+    private func compactIconButton(
+        _ title: String,
+        systemImage: String,
+        disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16))
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+        .disabled(disabled)
+        .opacity(disabled ? 0.4 : 1)
+        .accessibilityLabel(title)
+    }
+
     private func compactToolButton(
         _ title: String,
         systemImage: String,
@@ -497,22 +561,16 @@ struct DetailPanel: View {
     }
 
     private func compactToolLabel(_ title: String, systemImage: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: systemImage)
-                .font(.system(size: 20))
-                .frame(height: 24)
-            Text(title)
-                .font(.caption2.weight(.medium))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .foregroundStyle(.primary)
-        .frame(maxWidth: .infinity, minHeight: 56)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
-        )
-        .contentShape(Rectangle())
+        Image(systemName: systemImage)
+            .font(.system(size: 20))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, minHeight: 46)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+            .accessibilityLabel(title)
     }
 
     private var handledContent: some View {
@@ -622,8 +680,14 @@ struct DetailPanel: View {
         .sheet(isPresented: $showAdjustments) {
             ImageAdjustmentsView(
                 adjustments: viewModel.imageAdjustments,
-                previewImage: viewModel.adjustedPreviewImage ?? viewModel.originalImage,
-                onChange: { viewModel.setImageAdjustments($0) },
+                previewImage: viewModel.livePreviewImage ?? viewModel.adjustedPreviewImage ?? viewModel.originalImage,
+                onChange: { adjustments, commit in
+                    if commit {
+                        viewModel.setImageAdjustments(adjustments)
+                    } else {
+                        viewModel.previewImageAdjustments(adjustments)
+                    }
+                },
                 onDone: { showAdjustments = false }
             )
         }

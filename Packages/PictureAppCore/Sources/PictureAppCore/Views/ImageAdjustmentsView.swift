@@ -14,10 +14,13 @@ struct ImageAdjustmentsView: View {
     // `onChange`) visar den SENASTE bilden, inte en frusen ögonblicksbild
     // från när panelen öppnades.
     let previewImage: PlatformImage?
-    let onChange: (ImageAdjustments) -> Void
+    // `commit == false` medan ett reglage dras (billig förhandsvisning),
+    // `true` när det släpps (full körning) - se
+    // `SearchViewModel.previewImageAdjustments`.
+    let onChange: (ImageAdjustments, Bool) -> Void
     let onDone: () -> Void
 
-    init(adjustments: ImageAdjustments, previewImage: PlatformImage?, onChange: @escaping (ImageAdjustments) -> Void, onDone: @escaping () -> Void) {
+    init(adjustments: ImageAdjustments, previewImage: PlatformImage?, onChange: @escaping (ImageAdjustments, Bool) -> Void, onDone: @escaping () -> Void) {
         _adjustments = State(initialValue: adjustments)
         self.previewImage = previewImage
         self.onChange = onChange
@@ -63,7 +66,7 @@ struct ImageAdjustmentsView: View {
             HStack {
                 Button(L("Återställ justeringar")) {
                     adjustments = .identity
-                    onChange(adjustments)
+                    onChange(adjustments, true)
                 }
                 .disabled(adjustments.isIdentity)
 
@@ -74,7 +77,7 @@ struct ImageAdjustmentsView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 340, idealWidth: 380, minHeight: 480, idealHeight: 560)
+        .sheetFrame(minWidth: 340, idealWidth: 380, minHeight: 480, idealHeight: 560)
     }
 
     // `title: String`, redan lokaliserad av anropsstället (`L(...)`) - INTE
@@ -93,9 +96,12 @@ struct ImageAdjustmentsView: View {
             Slider(
                 value: Binding(
                     get: { value.wrappedValue },
-                    set: { value.wrappedValue = $0; onChange(adjustments) }
+                    set: { value.wrappedValue = $0; onChange(adjustments, false) }
                 ),
-                in: range
+                in: range,
+                onEditingChanged: { editing in
+                    if !editing { onChange(adjustments, true) }
+                }
             )
         }
     }

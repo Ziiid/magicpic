@@ -40,6 +40,16 @@ struct MaskEditorView: View {
 
     private let backgroundRemoval = BackgroundRemovalService()
 
+    // På en touchskärm täcker fingret det man målar - penselns träffpunkt
+    // flyttas därför UPP ovanför fingret (ringen visas där, med en linje ner
+    // till fingret). På Mac ligger den precis under muspekaren.
+    #if os(iOS)
+    private static let fingerOffset: CGFloat = 72
+    #else
+    private static let fingerOffset: CGFloat = 0
+    #endif
+    @State private var fingerPoint: CGPoint?
+
     enum Mode: String, CaseIterable, Identifiable {
         case paint = "Måla"
         case navigate = "Navigera"
@@ -103,13 +113,25 @@ struct MaskEditorView: View {
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged { value in
-                                        paint(at: value.location, containerSize: containerSize, scale: scale, offset: offset)
+                                        fingerPoint = value.location
+                                        let target = CGPoint(x: value.location.x, y: value.location.y - Self.fingerOffset)
+                                        paint(at: target, containerSize: containerSize, scale: scale, offset: offset)
                                     }
                                     .onEnded { _ in
                                         brushCursor = nil
+                                        fingerPoint = nil
                                         Task { await recomposite() }
                                     }
                             )
+                        if Self.fingerOffset > 0, let brushCursor, let fingerPoint {
+                            // Linje + prick från fingret upp till penseln.
+                            Path { p in
+                                p.move(to: fingerPoint)
+                                p.addLine(to: brushCursor)
+                            }
+                            .stroke((isAdding ? Color.green : Color.red).opacity(0.7), style: StrokeStyle(lineWidth: 2, dash: [4, 4]))
+                            .allowsHitTesting(false)
+                        }
                         if let brushCursor {
                             Circle()
                                 .stroke(isAdding ? Color.green : Color.red, lineWidth: 2)
@@ -201,7 +223,7 @@ struct MaskEditorView: View {
         // bilden till den DOMINERANDE delen av ytan; `maxWidth/maxHeight:
         // .infinity` låter den dessutom växa vidare om fönstret är större
         // än `idealWidth/idealHeight`.
-        .frame(minWidth: 820, idealWidth: 1180, maxWidth: .infinity, minHeight: 660, idealHeight: 880, maxHeight: .infinity)
+        .sheetFrame(minWidth: 820, idealWidth: 1180, minHeight: 660, idealHeight: 880, maxWidth: .infinity, maxHeight: .infinity)
         .task { await recomposite() }
     }
 

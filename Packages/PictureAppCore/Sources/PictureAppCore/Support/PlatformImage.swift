@@ -54,7 +54,7 @@ public extension PlatformImage {
         }
 
         let oriented = CIImage(cgImage: cgImage).oriented(orientation)
-        guard let normalized = CIContext().createCGImage(oriented, from: oriented.extent) else {
+        guard let normalized = SharedCIContext.shared.createCGImage(oriented, from: oriented.extent) else {
             return PlatformImage(cgImageRepresentation: cgImage)
         }
         return PlatformImage(cgImageRepresentation: normalized)
@@ -103,7 +103,7 @@ public extension PlatformImage {
         guard scale < 1 else { return self }
 
         let scaled = ciImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        guard let output = CIContext().createCGImage(scaled, from: scaled.extent) else { return self }
+        guard let output = SharedCIContext.shared.createCGImage(scaled, from: scaled.extent) else { return self }
         return PlatformImage(cgImageRepresentation: output)
     }
 
@@ -136,7 +136,7 @@ public extension PlatformImage {
         let cropped = scaled.cropped(to: CGRect(origin: cropOrigin, size: targetSize))
             .transformed(by: CGAffineTransform(translationX: -cropOrigin.x, y: -cropOrigin.y))
 
-        guard let output = CIContext().createCGImage(cropped, from: CGRect(origin: .zero, size: targetSize)) else { return self }
+        guard let output = SharedCIContext.shared.createCGImage(cropped, from: CGRect(origin: .zero, size: targetSize)) else { return self }
         return PlatformImage(cgImageRepresentation: output)
     }
 
@@ -163,7 +163,7 @@ public extension PlatformImage {
         let ciImage = CIImage(cgImage: cgImage)
         let white = CIImage(color: .white).cropped(to: ciImage.extent)
         let flattened = ciImage.composited(over: white)
-        guard let output = CIContext().createCGImage(flattened, from: ciImage.extent) else { return self }
+        guard let output = SharedCIContext.shared.createCGImage(flattened, from: ciImage.extent) else { return self }
         return PlatformImage(cgImageRepresentation: output)
     }
 }

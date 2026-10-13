@@ -84,7 +84,7 @@ struct FreeformDrawView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(16)
-        .frame(minWidth: 520, idealWidth: 760, maxWidth: .infinity, minHeight: 520, idealHeight: 760, maxHeight: .infinity)
+        .sheetFrame(minWidth: 520, idealWidth: 760, minHeight: 520, idealHeight: 760, maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// Bildens faktiska yta inuti `container` med `.fit`.

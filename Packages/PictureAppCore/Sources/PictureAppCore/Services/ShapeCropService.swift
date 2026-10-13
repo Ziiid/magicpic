@@ -110,7 +110,7 @@ public struct ShapeCropService {
     }
 
     private static func render(_ ciImage: CIImage, size: CGSize) throws -> PlatformImage {
-        let context = CIContext()
+        let context = SharedCIContext.shared
         guard let cgImage = context.createCGImage(ciImage, from: CGRect(origin: .zero, size: size)) else {
             throw ShapeError(message: "Kunde inte rendera resultatet.")
         }

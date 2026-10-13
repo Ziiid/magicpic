@@ -114,7 +114,7 @@ struct SubjectPickerView: View {
             }
         }
         .padding(24)
-        .frame(minWidth: 420, idealWidth: 520, minHeight: 480, idealHeight: 580)
+        .sheetFrame(minWidth: 420, idealWidth: 520, minHeight: 480, idealHeight: 580)
     }
 
     private var aspectRatio: CGFloat {

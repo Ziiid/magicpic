@@ -16,6 +16,14 @@ public final class SearchViewModel: ObservableObject {
     /// återuppta (visas som "Fortsätt där du slutade" i tomtillståndet) - se
     /// `SessionStore`.
     @Published public private(set) var hasSavedSession = false
+    /// Billig, nedskalad förhandsvisning medan ett Justera-reglage dras
+    /// (se `previewImageAdjustments`) - den FULLA pipelinen körs först när
+    /// reglaget släpps.
+    @Published public private(set) var livePreviewImage: PlatformImage?
+    private var liveRunning = false
+    private var livePending: ImageAdjustments?
+    private var liveSmall: PlatformImage?
+    private var liveSmallSource: PlatformImage?
     private var autosaveTask: Task<Void, Never>?
 
     @Published public var selectedItem: SearchResultItem?
@@ -582,10 +590,48 @@ public final class SearchViewModel: ObservableObject {
     /// bara justera skärpa/ljusstyrka/filter på originalet ska inte tyst
     /// trigga en riktig bakgrundsborttagning med standardbakgrunden.
     public func setImageAdjustments(_ adjustments: ImageAdjustments) {
+        livePending = nil
         imageAdjustments = adjustments
         refreshEditPreview()
         if processedImage != nil {
             removeBackground()
+        }
+    }
+
+    /// Live-förhandsvisning MEDAN ett reglage dras: filter + justeringar på
+    /// en NEDSKALAD kopia (max 900 px), en körning i taget (senaste värdet
+    /// vinner). Rör varken `shareURL`, Vision eller den fulla pipelinen -
+    /// att köra den per reglageutslag på en full-upplöst iPhone-bild tog
+    /// slut på minnet och appen stängdes (rapporterat 2026-10-13). Själva
+    /// justeringen läggs i `setImageAdjustments` när reglaget släpps.
+    public func previewImageAdjustments(_ adjustments: ImageAdjustments) {
+        imageAdjustments = adjustments
+        livePending = adjustments
+        runLivePreview()
+    }
+
+    private func runLivePreview() {
+        guard !liveRunning, let adjustments = livePending, let original = originalImage else { return }
+        livePending = nil
+        liveRunning = true
+        let filter = photoFilter
+        let cachedSmall = (liveSmallSource === original) ? liveSmall : nil
+
+        Task.detached(priority: .userInitiated) { [photoFilterService, imageAdjustment] in
+            let small = cachedSmall ?? original.resized(maxDimension: 900)
+            let preview: PlatformImage? = {
+                guard let filtered = try? photoFilterService.apply(filter, to: small) else { return nil }
+                return try? imageAdjustment.apply(adjustments, to: filtered)
+            }()
+            await MainActor.run {
+                self.liveSmall = small
+                self.liveSmallSource = original
+                self.liveRunning = false
+                if let preview {
+                    self.livePreviewImage = preview
+                }
+                self.runLivePreview()
+            }
         }
     }
 
@@ -618,6 +664,7 @@ public final class SearchViewModel: ObservableObject {
             await MainActor.run {
                 guard generation == self.adjustmentGeneration else { return }
                 self.adjustedPreviewImage = preview
+                self.livePreviewImage = nil
                 self.refreshShareURL()
             }
         }

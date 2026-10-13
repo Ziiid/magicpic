@@ -154,7 +154,7 @@ public struct BackgroundRemovalService {
         blendFilter.setValue(CIImage(cvPixelBuffer: mask), forKey: kCIInputMaskImageKey)
 
         guard let outputImage = blendFilter.outputImage,
-              let cgImage = CIContext().createCGImage(outputImage, from: extent) else {
+              let cgImage = SharedCIContext.shared.createCGImage(outputImage, from: extent) else {
             throw RemovalError(message: "Kunde inte rendera markeringen.")
         }
         return cgImage
@@ -192,7 +192,7 @@ public struct BackgroundRemovalService {
         CVPixelBufferCreate(kCFAllocatorDefault, sampleWidth, sampleHeight, kCVPixelFormatType_OneComponent8, nil, &maybeSample)
         guard let sample = maybeSample else { return fallback }
 
-        CIContext().render(
+        SharedCIContext.shared.render(
             scaled,
             to: sample,
             bounds: CGRect(x: 0, y: 0, width: sampleWidth, height: sampleHeight),
@@ -251,7 +251,7 @@ public struct BackgroundRemovalService {
             throw RemovalError(message: "Kunde inte skapa resultatbilden.")
         }
 
-        let context = CIContext()
+        let context = SharedCIContext.shared
         guard let outputCGImage = context.createCGImage(outputCIImage, from: originalCI.extent) else {
             throw RemovalError(message: "Kunde inte rendera resultatet.")
         }
@@ -274,7 +274,7 @@ public struct BackgroundRemovalService {
     ///   Oanvänd av övriga stilar.
     public func backgroundFill(_ style: BackgroundStyle, referenceImage: CGImage, canvasSize: CGSize) throws -> PlatformImage {
         let backgroundCI = try makeBackgroundImage(style, original: CIImage(cgImage: referenceImage), extent: CGRect(origin: .zero, size: canvasSize))
-        let context = CIContext()
+        let context = SharedCIContext.shared
         guard let cgImage = context.createCGImage(backgroundCI, from: CGRect(origin: .zero, size: canvasSize)) else {
             throw RemovalError(message: "Kunde inte rendera bakgrunden.")
         }
@@ -303,7 +303,7 @@ public struct BackgroundRemovalService {
         compositeFilter.setValue(backgroundCI, forKey: kCIInputBackgroundImageKey)
 
         let extent = CGRect(origin: .zero, size: subject.size)
-        let context = CIContext()
+        let context = SharedCIContext.shared
         guard let outputImage = compositeFilter.outputImage,
               let outputCGImage = context.createCGImage(outputImage, from: extent) else {
             throw RemovalError(message: "Kunde inte rendera resultatet.")
