@@ -907,11 +907,22 @@ struct DetailPanel: View {
     /// kontrollens egen krom - se buggs.md 2026-09-26.
     @ViewBuilder
     private var formatMenuItems: some View {
-        ForEach(ImageExportFormat.allCases) { format in
-            Button {
-                viewModel.setExportFormat(format)
-            } label: {
-                Label(format.label, systemImage: format == viewModel.exportFormat ? "checkmark" : "circle")
+        Section(L("Filformat")) {
+            ForEach(ImageExportFormat.allCases) { format in
+                Button {
+                    viewModel.setExportFormat(format)
+                } label: {
+                    Label(format.label, systemImage: format == viewModel.exportFormat ? "checkmark" : "circle")
+                }
+            }
+        }
+        Section(L("Storlek")) {
+            ForEach(ExportSize.allCases) { size in
+                Button {
+                    viewModel.setExportSize(size)
+                } label: {
+                    Label(size.label, systemImage: size == viewModel.exportSize ? "checkmark" : "circle")
+                }
             }
         }
     }

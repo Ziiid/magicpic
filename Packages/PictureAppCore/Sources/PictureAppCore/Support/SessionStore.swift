@@ -28,6 +28,7 @@ actor SessionStore {
     struct SavedSession: Codable {
         var title: String
         var exportFormat: String
+        var exportSize: String?
         var background: SavedBackground
         var photoFilter: String
         var adjustments: [Double]

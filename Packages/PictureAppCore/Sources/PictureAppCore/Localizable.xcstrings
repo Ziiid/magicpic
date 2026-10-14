@@ -2623,6 +2623,56 @@
           }
         }
       }
+    },
+    "Originalstorlek" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Original size"
+          }
+        }
+      }
+    },
+    "Stor (2048 px)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Large (2048 px)"
+          }
+        }
+      }
+    },
+    "Medel (1080 px)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium (1080 px)"
+          }
+        }
+      }
+    },
+    "Liten (512 px)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Small (512 px)"
+          }
+        }
+      }
+    },
+    "Filformat" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File format"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

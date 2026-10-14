@@ -79,6 +79,8 @@ public final class SearchViewModel: ObservableObject {
     @Published public var maskEditingRequest: MaskEditingRequest?
     @Published public var subjectSelectionRequest: SubjectSelectionRequest?
     @Published public var exportFormat: ImageExportFormat = .png
+    /// Längsta sidan vid spara/dela - se `ExportSize`.
+    @Published public var exportSize: ExportSize = .original
     // En redan skriven temporär fil i valt format, redo att delas via
     // `ShareLink` (Meddelanden/Mail/AirDrop m.fl.) - se `refreshShareURL()`.
     // `nil` betyder "inget att dela än" (ingen bild inläst, eller kodningen
@@ -1057,7 +1059,10 @@ public final class SearchViewModel: ObservableObject {
     }
 
     public func save() {
-        guard let image = currentExportImage else { return }
+        guard var image = currentExportImage else { return }
+        if let maxDimension = exportSize.maxDimension {
+            image = image.resized(maxDimension: maxDimension)
+        }
         let fileName = exportFileName()
 
         Task {
@@ -1093,6 +1098,12 @@ public final class SearchViewModel: ObservableObject {
         refreshShareURL()
     }
 
+    /// Byter exportstorlek - delningsfilen skrivs om så "Dela" följer valet.
+    public func setExportSize(_ size: ExportSize) {
+        exportSize = size
+        refreshShareURL()
+    }
+
     /// Skriver om den temporära delningsfilen `shareURL` (använd av
     /// `ShareLink` i `DetailPanel` för att dela via Meddelanden/Mail/
     /// AirDrop m.fl.) - anropas varje gång bilden "Spara"/"Dela" skulle
@@ -1109,6 +1120,7 @@ public final class SearchViewModel: ObservableObject {
         let generation = shareGeneration
         let fileName = exportFileName()
         let format = exportFormat
+        let maxDimension = exportSize.maxDimension
         let processed = processedImage
         let base = adjustedPreviewImage ?? originalImage
         let overlay = textOverlay?.hasContent == true ? textOverlay : nil
@@ -1131,7 +1143,9 @@ public final class SearchViewModel: ObservableObject {
                 image = base
             }
             var url: URL?
-            if let image, let data = image.exportData(as: format) {
+            // Förminska till vald exportstorlek (aldrig förstora).
+            let sized = (maxDimension != nil) ? image?.resized(maxDimension: maxDimension!) : image
+            if let image = sized, let data = image.exportData(as: format) {
                 let target = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
                 if (try? data.write(to: target)) != nil {
                     url = target
@@ -1251,6 +1265,7 @@ public final class SearchViewModel: ObservableObject {
         }
 
         exportFormat = ImageExportFormat(rawValue: saved.exportFormat) ?? .png
+        exportSize = ExportSize(rawValue: saved.exportSize ?? "") ?? .original
         let snapshot = EditSnapshot(
             backgroundStyle: background,
             photoFilter: PhotoFilter(rawValue: saved.photoFilter) ?? .none,
@@ -1319,6 +1334,7 @@ public final class SearchViewModel: ObservableObject {
         let session = SessionStore.SavedSession(
             title: selectedItem?.title ?? "bild",
             exportFormat: exportFormat.rawValue,
+            exportSize: exportSize.rawValue,
             background: background,
             photoFilter: photoFilter.rawValue,
             adjustments: [a.brightness, a.contrast, a.saturation, a.temperature, a.highlights, a.shadows, a.sharpness, a.noiseReduction, a.vignette],
