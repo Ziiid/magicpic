@@ -243,6 +243,9 @@
 				INFOPLIST_KEY_CFBundleName = XtraPic;
 				INFOPLIST_KEY_NSCameraUsageDescription = "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XtraPic sparar den bearbetade bilden i ditt Foton-bibliotek.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -251,7 +254,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp;
 				PRODUCT_NAME = PictureApp;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -416,6 +419,9 @@
 				INFOPLIST_KEY_CFBundleName = XtraPic;
 				INFOPLIST_KEY_NSCameraUsageDescription = "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XtraPic sparar den bearbetade bilden i ditt Foton-bibliotek.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -424,7 +430,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp;
 				PRODUCT_NAME = PictureApp;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};

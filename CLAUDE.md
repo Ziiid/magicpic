@@ -52,6 +52,9 @@ bakgrund/form-pipelinen, så samma misstag inte görs igen. Se även
   är alltså medvetet olika saker.
 - Signering: `CODE_SIGN_STYLE: Automatic`, inget hårdkodat `DEVELOPMENT_TEAM`.
   Användaren väljer sitt Team i Xcodes Signing & Capabilities-flik.
+  OBS: `xcodegen generate` RADERAR det valda Teamet ur `.xcodeproj` (det ligger
+  bara där, inte i `project.yml`) - kontrollera/välj Team igen efter varje körning
+  (Team-ID `3873522W2D` lades senast tillbaka för hand i pbxproj 2026-10-14).
 
 ## Lokalisering (svenska/engelska)
 

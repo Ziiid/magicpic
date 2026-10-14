@@ -55,6 +55,13 @@ targets:
     info:
       path: App/iOS/Info.plist
       properties:
+        # Versionsnummer från build settings (annars låses de till de
+        # bokstavliga värdena i Info.plist och uppladdningar får samma build).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Bara standardkryptering (HTTPS) - slipper exportfrågan vid varje
+        # uppladdning.
+        ITSAppUsesNonExemptEncryption: false
         # Startskärm: nästan svart bakgrund (samma som tomtillståndets bild)
         # + den svartvita X-bilden - sömlös övergång till appens första vy.
         UILaunchScreen:
@@ -72,4 +79,8 @@ targets:
         INFOPLIST_KEY_NSCameraUsageDescription: "XtraPic behöver tillgång till kameran för att kunna ta en bild direkt i appen."
         INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "XtraPic sparar den bearbetade bilden i ditt Foton-bibliotek."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        TARGETED_DEVICE_FAMILY: "1,2"
+        # Bara iPhone - Mac har ett eget, native mål (PictureApp-macOS).
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
