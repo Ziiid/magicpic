@@ -30,28 +30,28 @@ public enum PhotoFilter: String, CaseIterable, Identifiable, Equatable {
     public var label: String {
         let locale = AppLanguage.current.locale
         switch self {
-        case .none: return String(localized: "Inget", bundle: .module, locale: locale)
-        case .blackAndWhite: return String(localized: "Svartvitt", bundle: .module, locale: locale)
-        case .sepia: return String(localized: "Gammal bild", bundle: .module, locale: locale)
-        case .xray: return String(localized: "Röntgen", bundle: .module, locale: locale)
-        case .chrome: return String(localized: "Krom", bundle: .module, locale: locale)
-        case .fade: return String(localized: "Blekt", bundle: .module, locale: locale)
-        case .comic: return String(localized: "Serietidning", bundle: .module, locale: locale)
-        case .thermal: return String(localized: "Värmekamera", bundle: .module, locale: locale)
-        case .poster: return String(localized: "Poster", bundle: .module, locale: locale)
+        case .none: return L("Inget")
+        case .blackAndWhite: return L("Svartvitt")
+        case .sepia: return L("Gammal bild")
+        case .xray: return L("Röntgen")
+        case .chrome: return L("Krom")
+        case .fade: return L("Blekt")
+        case .comic: return L("Serietidning")
+        case .thermal: return L("Värmekamera")
+        case .poster: return L("Poster")
         // "Direktbild" - INTE "Polaroid" (upptaget av den riktiga, inramade
         // stilen nedan sedan 2026-09-26) - det här är bara CIPhotoEffectInstants
         // FÄRGLOOK, ingen ram/layout.
-        case .instant: return String(localized: "Direktbild", bundle: .module, locale: locale)
-        case .process: return String(localized: "Process", bundle: .module, locale: locale)
-        case .tonal: return String(localized: "Tonal", bundle: .module, locale: locale)
-        case .transfer: return String(localized: "Filmtransfer", bundle: .module, locale: locale)
-        case .vignette: return String(localized: "Vinjett", bundle: .module, locale: locale)
-        case .negative: return String(localized: "Negativ", bundle: .module, locale: locale)
-        case .silhouette: return String(localized: "Siluett", bundle: .module, locale: locale)
-        case .polaroid: return String(localized: "Polaroid", bundle: .module, locale: locale)
-        case .photobooth: return String(localized: "Fotoautomat", bundle: .module, locale: locale)
-        case .photoboothMono: return String(localized: "Fotoautomat (svartvitt)", bundle: .module, locale: locale)
+        case .instant: return L("Direktbild")
+        case .process: return L("Process")
+        case .tonal: return L("Tonal")
+        case .transfer: return L("Filmtransfer")
+        case .vignette: return L("Vinjett")
+        case .negative: return L("Negativ")
+        case .silhouette: return L("Siluett")
+        case .polaroid: return L("Polaroid")
+        case .photobooth: return L("Fotoautomat")
+        case .photoboothMono: return L("Fotoautomat (svartvitt)")
         }
     }
 

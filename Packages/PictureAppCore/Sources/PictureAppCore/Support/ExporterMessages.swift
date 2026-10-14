@@ -7,10 +7,10 @@ import Foundation
 /// PictureAppCore-lokaliserade egenskaperna istället.
 public enum ExporterMessages {
     public static var couldNotCreateImageData: String {
-        String(localized: "Kunde inte skapa bilddata.", bundle: .module, locale: AppLanguage.current.locale)
+        L("Kunde inte skapa bilddata.")
     }
 
     public static var photosPermissionDenied: String {
-        String(localized: "XtraPic saknar behörighet att spara i Foton.", bundle: .module, locale: AppLanguage.current.locale)
+        L("XtraPic saknar behörighet att spara i Foton.")
     }
 }

@@ -34,6 +34,11 @@ public struct ContentView: View {
     public var body: some View {
         platformLayout
             .task { await viewModel.refreshSavedSessionAvailability() }
+            // Byter man flik (Egen bild/Webb-AI) ska valsidan visas, inte
+            // den redigerade bilden.
+            .onChange(of: viewModel.sourceKind) { _, _ in
+                viewModel.selectedItem = nil
+            }
             .focusedSceneValue(\.editorActions, EditorActions(
                 openImage: { showImageSourceDialog = true },
                 save: { viewModel.save() },
@@ -71,7 +76,7 @@ public struct ContentView: View {
             .sheet(isPresented: $showCamera) {
                 CameraCaptureView(
                     onCapture: { image in
-                        viewModel.loadImportedImage(image, name: String(localized: "Kamera", bundle: .module, locale: AppLanguage.current.locale))
+                        viewModel.loadImportedImage(image, name: L("Kamera"))
                         showCamera = false
                     },
                     onCancel: { showCamera = false }
@@ -85,13 +90,22 @@ public struct ContentView: View {
         VStack(spacing: 0) {
             searchBar
             Divider()
-            HStack(spacing: 0) {
+            if viewModel.selectedItem != nil {
+                // En bild är vald: redigeraren får HELA fönstret - ingen stor
+                // "Välj bild"-yta bredvid (rapporterat 2026-10-14). Ny bild
+                // väljs via "Ny bild" i sökraden, en ny flik, ⌘O eller drag.
+                DetailPanel(viewModel: viewModel)
+                    // Bygger om panelen vid språkbyte - dess texter slås
+                    // upp vid rendering och den läser inte själv av
+                    // språkvalet, så den uppdaterades annars inte.
+                    .id(appLanguage)
+                    .onDrop(
+                        of: [UTType.item.identifier],
+                        isTargeted: $isDropTargeted,
+                        perform: handleDrop
+                    )
+            } else {
                 mainContent
-                if viewModel.selectedItem != nil {
-                    Divider()
-                    DetailPanel(viewModel: viewModel)
-                        .frame(width: 380)
-                }
             }
         }
         #else
@@ -103,6 +117,7 @@ public struct ContentView: View {
             }
             .navigationDestination(item: $viewModel.selectedItem) { _ in
                 DetailPanel(viewModel: viewModel)
+                    .id(appLanguage)
                     .navigationTitle(L("Förhandsvisning"))
                     .navigationBarTitleDisplayMode(.inline)
             }
@@ -115,12 +130,12 @@ public struct ContentView: View {
         do {
             guard let data = try await item.loadTransferable(type: Data.self),
                   let image = PlatformImage.normalizedOrientation(from: data) else {
-                viewModel.errorMessage = String(localized: "Kunde inte läsa den valda bilden.", bundle: .module, locale: locale)
+                viewModel.errorMessage = L("Kunde inte läsa den valda bilden.")
                 return
             }
-            viewModel.loadImportedImage(image, name: String(localized: "Foto", bundle: .module, locale: locale))
+            viewModel.loadImportedImage(image, name: L("Foto"))
         } catch {
-            let prefix = String(localized: "Kunde inte läsa den valda bilden:", bundle: .module, locale: locale)
+            let prefix = L("Kunde inte läsa den valda bilden:")
             viewModel.errorMessage = "\(prefix) \(error.localizedDescription)"
         }
     }
@@ -152,6 +167,17 @@ public struct ContentView: View {
                     .labelsHidden()
                     .frame(width: 130)
                 }
+
+            // Tillbaka till valsidan (egen bild/webb) - bilden och redigeringen
+            // finns kvar och sparas automatiskt ("Fortsätt där du slutade").
+            if viewModel.selectedItem != nil {
+                Button {
+                    viewModel.selectedItem = nil
+                } label: {
+                    Label(L("Ny bild"), systemImage: "plus")
+                }
+                .help(L("Välj en annan bild"))
+            }
 
             Button {
                 showSettings = true
@@ -204,11 +230,11 @@ public struct ContentView: View {
     private var webSearchHelpText: String {
         let locale = AppLanguage.current.locale
         if case .generator(let generator) = viewModel.searchEngine {
-            let prefix = String(localized: "Öppnar", bundle: .module, locale: locale)
-            let suffix = String(localized: "i webbläsaren - kräver att du är inloggad. Kopiera bilden där och klistra in den i appen (drag stöds kanske inte).", bundle: .module, locale: locale)
+            let prefix = L("Öppnar")
+            let suffix = L("i webbläsaren - kräver att du är inloggad. Kopiera bilden där och klistra in den i appen (drag stöds kanske inte).")
             return "\(prefix) \(generator.name) \(suffix)"
         }
-        return String(localized: "Öppnar i webbläsaren - dra sedan in bilden du hittar i appen.", bundle: .module, locale: locale)
+        return L("Öppnar i webbläsaren - dra sedan in bilden du hittar i appen.")
     }
 
     /// Instruktionstexten i `webSearchPlaceholder` för en AI-generator -
@@ -219,8 +245,8 @@ public struct ContentView: View {
     /// prefix/suffix-text med namnet konkatenerat emellan.
     private func generatorInstructionText(for generator: AIImageGenerator) -> String {
         let locale = AppLanguage.current.locale
-        let prefix = String(localized: "Skriv en bildbeskrivning ovan och tryck på förstoringsglaset -", bundle: .module, locale: locale)
-        let suffix = String(localized: "öppnas i webbläsaren. Kräver att du är inloggad. Sidan kanske inte stödjer drag för bilder - högerklicka bilden, välj \"Kopiera bild\", och klistra in den nedan om det behövs.", bundle: .module, locale: locale)
+        let prefix = L("Skriv en bildbeskrivning ovan och tryck på förstoringsglaset -")
+        let suffix = L("öppnas i webbläsaren. Kräver att du är inloggad. Sidan kanske inte stödjer drag för bilder - högerklicka bilden, välj \"Kopiera bild\", och klistra in den nedan om det behövs.")
         return "\(prefix) \(generator.name) \(suffix)"
     }
 
@@ -250,14 +276,10 @@ public struct ContentView: View {
         .environment(\.colorScheme, .dark)
         .background {
             if viewModel.selectedItem == nil {
-                // scaledToFit så hela X:et får plats; bildens nästan svarta
-                // kant fortsätter i en matchande fyllnadsfärg.
-                ZStack {
-                    Color(white: 9.0 / 255.0)
-                    Image("XtraPicBack")
-                        .resizable()
-                        .scaledToFit()
-                }
+                // Bara den jämna svarta färgen - själva X-bilden ritas av
+                // `placeholderLayout`, i en storlek som lämnar plats åt
+                // texten ovanför och knappen under.
+                Color(white: 9.0 / 255.0)
             }
         }
         .clipped()
@@ -344,14 +366,28 @@ public struct ContentView: View {
         let topContent = top()
         let bottomContent = bottom()
         return GeometryReader { geo in
-            let imageHeight = min(geo.size.height, geo.size.width / 1.5)
-            // + 2 × 72 pt (ca 2 cm) luft mellan X:et och text/knapp.
-            let xGap = imageHeight * 0.58 + 144
-            // Luckan för X:et ligger EXAKT i mitten (bakgrundsbilden är
-            // centrerad) - över- och underdelen får lika höga fält som
-            // förankrar innehållet mot luckan, annars skulle ojämnt hög
-            // text/knapp skjuta luckan ur läge och lägga texten på X:et.
+            // X-bilden anpassas till LUCKAN mellan text (ovan) och knappar
+            // (under) - inte tvärtom. Tidigare fyllde den hela fönstret och
+            // text/knappar hamnade ovanpå X:et i ett lågt fönster (rapporterat
+            // 2026-10-14). Per sida reserveras plats för innehållet (ca 120 pt,
+            // inkl. två textrader/"Fortsätt där du slutade") + 20 pt luft.
+            let sidePad: CGFloat = 20
+            let sideReserve: CGFloat = 120
+            let xFraction: CGFloat = 0.58 // X:ets höjd som andel av bildens
+            let availableX = max(geo.size.height - 2 * (sideReserve + sidePad), 120)
+            let imageHeight = min(availableX / xFraction, geo.size.width / 1.5)
+            let xHeight = imageHeight * xFraction
+            let xGap = xHeight + 2 * sidePad
+            // Luckan för X:et ligger EXAKT i mitten - över- och underdelen får
+            // lika höga fält som förankrar innehållet mot luckan.
             let half = max(0, (geo.size.height - xGap) / 2)
+            ZStack {
+            Image("XtraPicBack")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: imageHeight)
+                .allowsHitTesting(false)
+
             VStack(spacing: 0) {
                 VStack(spacing: 12) { topContent }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -368,6 +404,8 @@ public struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .frame(height: half)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
@@ -470,7 +508,7 @@ public struct ContentView: View {
             // `_ObjectiveCBridgeable`-fel.
             _ = provider.loadObject(ofClass: PlatformImage.self as NSItemProviderReading.Type) { reading, _ in
                 guard let image = reading as? PlatformImage, claim.tryClaim() else { return }
-                Task { @MainActor in viewModel.loadImportedImage(image.normalizedOrientation(), name: String(localized: "Importerad bild", bundle: .module, locale: AppLanguage.current.locale)) }
+                Task { @MainActor in viewModel.loadImportedImage(image.normalizedOrientation(), name: L("Importerad bild")) }
             }
         }
 
@@ -482,7 +520,7 @@ public struct ContentView: View {
             // `canLoadObject`-vägen ovan.
             provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
                 guard let data, let decoded = PlatformImage(data: data), claim.tryClaim() else { return }
-                Task { @MainActor in viewModel.loadImportedImage(decoded.normalizedOrientation(), name: String(localized: "Importerad bild", bundle: .module, locale: AppLanguage.current.locale)) }
+                Task { @MainActor in viewModel.loadImportedImage(decoded.normalizedOrientation(), name: L("Importerad bild")) }
             }
         }
 
@@ -516,11 +554,7 @@ public struct ContentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             Task { @MainActor in
                 guard !claim.isClaimed else { return }
-                viewModel.errorMessage = String(
-                    localized: "Den här bilden går inte att dra in direkt - webbsidan levererar bilddata på ett sätt appen inte kan läsa. Högerklicka bilden i webbläsaren, välj \"Kopiera bild\", och använd \"Klistra in bild\" under Webb/AI istället.",
-                    bundle: .module,
-                    locale: AppLanguage.current.locale
-                )
+                viewModel.errorMessage = L("Den här bilden går inte att dra in direkt - webbsidan levererar bilddata på ett sätt appen inte kan läsa. Högerklicka bilden i webbläsaren, välj \"Kopiera bild\", och använd \"Klistra in bild\" under Webb/AI istället.")
                 #if DEBUG
                 print("[handleDrop] Kunde inte tolka draget. Annonserade typer: \(registeredTypes)")
                 #endif

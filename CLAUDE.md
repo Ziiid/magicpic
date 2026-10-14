@@ -73,6 +73,14 @@ Store-distribution är global).
   läser UserDefaults-nyckeln `"appLanguage"` DIREKT (samma nyckel som
   `ContentView`s `@AppStorage`) för kod UTAN tillgång till SwiftUI-miljön
   (modeller/services, t.ex. `PhotoFilter.label`).
+- **UPPDATERAT 2026-10-14:** `L(...)` slår numera upp mot RÄTT SPRÅKS egen
+  `.lproj` (`AppLanguage.bundle`) för engelska, och mot en obefintlig tabell
+  för svenska (nyckeln ÄR då texten) - `String(localized:locale:)`s
+  `locale`-parameter väljer INTE pålitligt språk (den faller tillbaka på
+  enhetens språk). Skriv därför ALDRIG `String(localized:..., bundle:
+  .module, locale:...)` direkt - använd `L(...)`. `DetailPanel` bygger om
+  sig vid språkbyte via `.id(appLanguage)` i `ContentView` (texter slås upp
+  vid rendering, inte via miljön). Se `buggs.md` 2026-10-14.
 - **EN enda lokaliseringsväg - `L("Svensk text")`** (`Models/Localized.swift`,
   bara en kort stavning av `String(localized:bundle:.module,locale:
   AppLanguage.current.locale)`). Detta gäller BOKSTAVLIGEN VARJE

@@ -14,7 +14,7 @@ public struct ImageAdjustmentService {
         let message: String
         // Se `BackgroundRemovalService.RemovalError`s motsvarande kommentar.
         public var errorDescription: String? {
-            String(localized: String.LocalizationValue(message), bundle: .module, locale: AppLanguage.current.locale)
+            L(String.LocalizationValue(message))
         }
     }
 

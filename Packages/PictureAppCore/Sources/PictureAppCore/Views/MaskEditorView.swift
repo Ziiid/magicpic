@@ -59,8 +59,8 @@ struct MaskEditorView: View {
         var label: String {
             let locale = AppLanguage.current.locale
             switch self {
-            case .paint: return String(localized: "Måla", bundle: .module, locale: locale)
-            case .navigate: return String(localized: "Navigera", bundle: .module, locale: locale)
+            case .paint: return L("Måla")
+            case .navigate: return L("Navigera")
             }
         }
     }

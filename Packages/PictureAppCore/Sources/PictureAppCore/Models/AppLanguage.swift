@@ -18,6 +18,23 @@ public enum AppLanguage: String, CaseIterable, Identifiable {
 
     public var locale: Locale { Locale(identifier: rawValue) }
 
+    /// Språkets egen `.lproj`-bundle inuti paketets resurser (se `L(_:)`).
+    /// Faller tillbaka på hela paketbundeln om språkmappen saknas.
+    var bundle: Bundle {
+        Self.bundles[self] ?? .module
+    }
+
+    private static let bundles: [AppLanguage: Bundle] = {
+        var result: [AppLanguage: Bundle] = [:]
+        for language in AppLanguage.allCases {
+            if let path = Bundle.module.path(forResource: language.rawValue, ofType: "lproj"),
+               let bundle = Bundle(path: path) {
+                result[language] = bundle
+            }
+        }
+        return result
+    }()
+
     public var label: String {
         switch self {
         case .swedish: return "Svenska"

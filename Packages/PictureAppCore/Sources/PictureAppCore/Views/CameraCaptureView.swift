@@ -135,7 +135,7 @@ private final class MacCameraModel: NSObject, ObservableObject {
         Task {
             let granted = await AVCaptureDevice.requestAccess(for: .video)
             guard granted else {
-                errorMessage = String(localized: "XtraPic saknar behörighet att använda kameran. Godkänn i Systeminställningar > Sekretess och säkerhet > Kamera.", bundle: .module, locale: AppLanguage.current.locale)
+                errorMessage = L("XtraPic saknar behörighet att använda kameran. Godkänn i Systeminställningar > Sekretess och säkerhet > Kamera.")
                 return
             }
             configureSessionIfNeeded()
@@ -159,13 +159,13 @@ private final class MacCameraModel: NSObject, ObservableObject {
         guard let device = AVCaptureDevice.default(for: .video),
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input) else {
-            errorMessage = String(localized: "Hittade ingen kamera.", bundle: .module, locale: AppLanguage.current.locale)
+            errorMessage = L("Hittade ingen kamera.")
             return
         }
         session.addInput(input)
 
         guard session.canAddOutput(photoOutput) else {
-            errorMessage = String(localized: "Kunde inte konfigurera kameran.", bundle: .module, locale: AppLanguage.current.locale)
+            errorMessage = L("Kunde inte konfigurera kameran.")
             return
         }
         session.addOutput(photoOutput)

@@ -24,7 +24,7 @@ public struct PhotoFilterService {
         // Se `BackgroundRemovalService.RemovalError`s motsvarande kommentar
         // - EN lokaliseringspunkt istället för att skriva om varje `throw`.
         public var errorDescription: String? {
-            String(localized: String.LocalizationValue(message), bundle: .module, locale: AppLanguage.current.locale)
+            L(String.LocalizationValue(message))
         }
     }
 
@@ -218,7 +218,7 @@ public struct PhotoFilterService {
             // upp HELA `message` som en nyckel (se dess kommentar), och ett
             // filternamn som varierar per anrop skulle aldrig matcha en
             // fast katalogpost.
-            let prefix = String(localized: "Kunde inte skapa filtret", bundle: .module, locale: AppLanguage.current.locale)
+            let prefix = L("Kunde inte skapa filtret")
             throw FilterError(message: "\(prefix) \(name).")
         }
         ciFilter.setValue(image, forKey: kCIInputImageKey)

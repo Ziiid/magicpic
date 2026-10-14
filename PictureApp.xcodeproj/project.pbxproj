@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		16A8DE98F906BBCA631503A2 /* PictureAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C15F6539EA077B818496EFE /* PictureAppApp.swift */; };
 		224B8EE6D39FF33D0DDEF3EE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4370B253D4824A6E8BBFDF39 /* Assets.xcassets */; };
+		22E1A3F91DB88925DE7BC387 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 36964622389FFCCBA0F20DBD /* AppIcon.icon */; };
 		28357FE8C7C33497B8975CCE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 875AC5104DE47221CB8709D0 /* Assets.xcassets */; };
 		37B05B38205AE38680AE60B4 /* PictureAppCore in Frameworks */ = {isa = PBXBuildFile; productRef = 61800683A458CDE79D953AC1 /* PictureAppCore */; };
 		4BF2D0FFBA3E3FE49689DAA7 /* PictureAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF5BA2B1832CB4D82FE669D /* PictureAppApp.swift */; };
@@ -18,6 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		36964622389FFCCBA0F20DBD /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		4370B253D4824A6E8BBFDF39 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		54A3C53B2882E2EB6B47F2D5 /* IOSImageExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSImageExporter.swift; sourceTree = "<group>"; };
 		5A6F0201DB3A2F262C891AA0 /* MacImageExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacImageExporter.swift; sourceTree = "<group>"; };
@@ -54,6 +56,7 @@
 		0F7A526510755760B843CC10 /* macOS */ = {
 			isa = PBXGroup;
 			children = (
+				36964622389FFCCBA0F20DBD /* AppIcon.icon */,
 				4370B253D4824A6E8BBFDF39 /* Assets.xcassets */,
 				5A6F0201DB3A2F262C891AA0 /* MacImageExporter.swift */,
 				E3126A16FE9F1A1714972960 /* PictureApp.entitlements */,
@@ -196,6 +199,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				22E1A3F91DB88925DE7BC387 /* AppIcon.icon in Resources */,
 				224B8EE6D39FF33D0DDEF3EE /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -254,6 +258,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp;
 				PRODUCT_NAME = PictureApp;
 				SDKROOT = iphoneos;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -430,6 +435,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.tobias.pictureapp;
 				PRODUCT_NAME = PictureApp;
 				SDKROOT = iphoneos;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;

@@ -110,7 +110,7 @@ struct SubjectPickerView: View {
                     // tvingar fram en gemensam `String`-typ innan
                     // `.help(...)`s överlagringar väljs, vilket annars tyst
                     // ger den icke-lokaliserande varianten.
-                    .help(selected.isEmpty ? String(localized: "Välj minst ett motiv.", bundle: .module, locale: AppLanguage.current.locale) : "")
+                    .help(selected.isEmpty ? L("Välj minst ett motiv.") : "")
             }
         }
         .padding(24)

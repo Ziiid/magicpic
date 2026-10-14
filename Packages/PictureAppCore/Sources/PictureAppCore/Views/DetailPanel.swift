@@ -150,7 +150,116 @@ struct DetailPanel: View {
     
     }
 
+    @ViewBuilder
     private var baseContent: some View {
+        if isCompact {
+            compactContent
+        } else {
+            regularContent
+        }
+    }
+
+    /// Mac/iPad: BILDEN är huvudsaken - den fyller all plats till vänster, och
+    /// en smal kontrollkolumn ligger till höger (som i en vanlig
+    /// bildredigerare). Kontrollerna får aldrig ta mer plats än bilden.
+    private var regularContent: some View {
+        HStack(spacing: 0) {
+            VStack(spacing: 8) {
+                if showsFramingCanvas {
+                    Text(L("Dra för att flytta, nyp för att zooma, vrid med två fingrar för att rotera."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                } else if viewModel.photoFilter.isLayoutStyle, viewModel.originalImage != nil {
+                    layoutStyleNotice.padding(.top, 8)
+                }
+
+                previewContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+
+                if viewModel.isProcessing {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(L("Bearbetar…"))
+                    }
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                    .padding(.bottom, 8)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+
+            ScrollView {
+                VStack(spacing: 12) {
+                    if showsFramingCanvas {
+                        regularViewRow
+                    }
+                    regularToolbar
+                }
+                .padding(12)
+            }
+            .frame(width: 320)
+        }
+    }
+
+    /// Zooma/vrid/spegla/jämför/dra ut som en rad små ikonknappar.
+    private var regularViewRow: some View {
+        HStack(spacing: 4) {
+            compactIconButton(L("Zooma ut"), systemImage: "minus.magnifyingglass") {
+                viewModel.zoomSubject(by: 1 / 1.15)
+            }
+            compactIconButton(L("Zooma in"), systemImage: "plus.magnifyingglass") {
+                viewModel.zoomSubject(by: 1.15)
+            }
+            compactIconButton(L("Vrid åt vänster"), systemImage: "rotate.left") {
+                viewModel.rotateSubject(byDegrees: -SearchViewModel.rotationStepDegrees)
+            }
+            compactIconButton(L("Vrid åt höger"), systemImage: "rotate.right") {
+                viewModel.rotateSubject(byDegrees: SearchViewModel.rotationStepDegrees)
+            }
+            compactIconButton(L("Spegelvänd bilden"), systemImage: "flip.horizontal") {
+                viewModel.mirrorSubject()
+            }
+
+            // Håll nedtryckt = jämför med originalet.
+            Image(systemName: "eye")
+                .font(.system(size: 16))
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
+                .opacity(hasChanges ? 1 : 0.4)
+                .contentShape(Rectangle())
+                .onLongPressGesture(minimumDuration: 0, maximumDistance: 80, pressing: { pressing in
+                    showsOriginal = pressing && hasChanges
+                }, perform: {})
+                .help(L("Håll nedtryckt för att visa originalet"))
+
+            // Dra den färdiga filen till Finder/annan app.
+            if let shareURL = viewModel.shareURL {
+                Image(systemName: "arrow.up.forward.square")
+                    .font(.system(size: 16))
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
+                    .contentShape(Rectangle())
+                    .onDrag { NSItemProvider(contentsOf: shareURL) ?? NSItemProvider() }
+                    .help(L("Dra hit-ifrån till Finder eller en annan app för att släppa bilden som en fil."))
+            }
+        }
+    }
+
+    /// iPhone: bilden överst (fyller ytan), verktyg under.
+    private var compactContent: some View {
         VStack(spacing: 12) {
             // Hjälptexten ligger FAST ovanför ramningsytan (utanför
             // `ScrollView`) - under bilden hamnade den utom synhåll för
@@ -169,14 +278,11 @@ struct DetailPanel: View {
                 layoutStyleNotice
             }
 
-            if isCompact {
-                previewContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    previewContent
-                }
-            }
+            // Bilden fyller ALLTID ytan som blir över (anpassad till höjden) -
+            // tidigare scrollade den på bredare layouter och blev då
+            // avklippt nedåt.
+            previewContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Zoom-/rotationsknapparna ligger UTANFÖR `ScrollView` - annars
             // hamnar de under bilden och syns bara om man scrollar när
@@ -251,6 +357,7 @@ struct DetailPanel: View {
                         .help(L("Dra hit-ifrån till Finder eller en annan app för att släppa bilden som en fil."))
                     }
                 }
+                .frame(maxWidth: 600)
             }
 
             if let error = viewModel.errorMessage {
@@ -284,14 +391,20 @@ struct DetailPanel: View {
             // bredd på en smal skärm (se `Support/FlowLayout.swift`,
             // ursprungligen byggd för just det problemet 2026-09-26).
             toolbar
+                // Begränsad bredd på Mac/iPad - annars blev rutorna enorma när
+                // redigeraren fick hela fönstret.
+                .frame(maxWidth: isCompact ? .infinity : 600)
                 .padding(.horizontal, 2)
                 .padding(.bottom, 12)
         }
+        // Sidomarginal på Mac/iPad - rutnätet och Spara/Dela gick annars ända
+        // ut till fönsterkanten. (iPhone oförändrad.)
+        .padding(.horizontal, isCompact ? 0 : 12)
         .frame(maxHeight: .infinity)
     }
 
     /// Mac/iPad (bred panel): historik i en rad, verktygen som ett jämnt
-    /// rutnät (ikon + text, fyra kolumner) och Spara/Dela som en fullbredds-
+    /// rutnät (ikon + text, fem kolumner) och Spara/Dela som en fullbredds-
     /// rad längst ner - samma uppbyggnad som på iPhone, bara med texter.
     private var regularToolbar: some View {
         VStack(spacing: 10) {
@@ -327,7 +440,7 @@ struct DetailPanel: View {
                 .help(L("Kasta bakgrunds-/form-/positioneringsval och gå tillbaka till originalbilden."))
             }
 
-            toolGrid(labeled: true)
+            toolGrid(labeled: true, columns: 3)
 
             exportCluster(expands: true)
         }
@@ -362,8 +475,8 @@ struct DetailPanel: View {
     /// Verktygsrutnätet - samma verktyg på alla layouter. `labeled == false`
     /// (iPhone): bara ikoner; `true` (Mac/iPad): ikon med text
     /// under. Alltid fem kolumner (tio verktyg = två fulla rader).
-    private func toolGrid(labeled: Bool) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+    private func toolGrid(labeled: Bool, columns: Int = 5) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: columns), spacing: 8) {
             compactToolButton(labeled: labeled, L("Förval"), systemImage: "wand.and.stars", disabled: viewModel.originalImage == nil) {
                 showPresets = true
             }
@@ -400,8 +513,12 @@ struct DetailPanel: View {
             Menu {
                 formatMenuItems
             } label: {
-                compactToolLabel(L("Format"), systemImage: "gearshape", labeled: labeled)
+                compactToolLabel(L("Format"), systemImage: "aspectratio", labeled: labeled)
             }
+            // Utan de här gav macOS menyn en egen pil bredvid rutan, så
+            // Format-rutan blev smal och klipptes (rapporterat 2026-10-14).
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .tint(.primary)
             .disabled(viewModel.originalImage == nil)
             .opacity(viewModel.originalImage == nil ? 0.4 : 1)
@@ -861,7 +978,7 @@ struct DetailPanel: View {
             formatMenuItems
         } label: {
             ToolbarChrome(tier: .native) {
-                Label(L("Format"), systemImage: "gearshape")
+                Label(L("Format"), systemImage: "aspectratio")
             }
         }
         .tint(.primary)

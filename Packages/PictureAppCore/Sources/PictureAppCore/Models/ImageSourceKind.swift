@@ -14,8 +14,8 @@ public enum ImageSourceKind: String, CaseIterable, Identifiable {
     public var label: String {
         let locale = AppLanguage.current.locale
         switch self {
-        case .ownImage: return String(localized: "Egen bild", bundle: .module, locale: locale)
-        case .web: return String(localized: "Webb/AI", bundle: .module, locale: locale)
+        case .ownImage: return L("Egen bild")
+        case .web: return L("Webb/AI")
         }
     }
 }

@@ -20,7 +20,7 @@ public struct BackgroundRemovalService {
         // lokaliseras genom EN enda punkt istället för att skriva om varje
         // enskilt `throw`-ställe för sig.
         public var errorDescription: String? {
-            String(localized: String.LocalizationValue(message), bundle: .module, locale: AppLanguage.current.locale)
+            L(String.LocalizationValue(message))
         }
     }
 

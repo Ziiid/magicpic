@@ -25,10 +25,10 @@ public enum ExportSize: String, CaseIterable, Identifiable {
     public var label: String {
         let locale = AppLanguage.current.locale
         switch self {
-        case .original: return String(localized: "Originalstorlek", bundle: .module, locale: locale)
-        case .large: return String(localized: "Stor (2048 px)", bundle: .module, locale: locale)
-        case .medium: return String(localized: "Medel (1080 px)", bundle: .module, locale: locale)
-        case .small: return String(localized: "Liten (512 px)", bundle: .module, locale: locale)
+        case .original: return L("Originalstorlek")
+        case .large: return L("Stor (2048 px)")
+        case .medium: return L("Medel (1080 px)")
+        case .small: return L("Liten (512 px)")
         }
     }
 }

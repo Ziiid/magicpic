@@ -822,3 +822,23 @@ ingen hjälptext/ScrollView, bilden fyller ytan; verktygsraden är bara ikoner
 (5 kolumner) och historik+vy ligger i en rad. (4) På iOS målar penseln
 `fingerOffset` (72 pt) ovanför fingret, med en streckad linje ner till det.
 Inte omtestad på enhet ännu.
+
+## 2026-10-14: Språkväxeln (svenska/engelska) gav fel eller blandat språk
+
+**Symptom:** Att byta språk i Inställningar fungerade inte pålitligt.
+
+**Rotorsak (två, den första osäker utan enhetstest):** (1) All uppslagning
+gick via `String(localized:bundle:.module, locale:)`. `locale`-parametern
+styr främst FORMATERING och väljer inte pålitligt vilken översättning som
+används - bundeln föll tillbaka på enhetens språk. (2) Texter slås upp vid
+rendering (`L(...)`), men barnvyer som `DetailPanel` läser inte av språkvalet
+(varken via `@AppStorage` eller miljön) och ritades därför aldrig om vid
+byte - de behöll gamla språket tills något annat ändrades. Kontroll: alla
+209 strängar i koden finns i katalogen med engelsk översättning, så det var
+inte saknade nycklar.
+
+**Fix:** `L(...)` slår upp mot språkets egen `.lproj`-bundle (engelska) resp.
+en obefintlig tabell (svenska = nyckeln), alla direkta
+`String(localized:...bundle:.module,locale:)` ersatta med `L(...)`;
+`DetailPanel` får `.id(appLanguage)`; Mac-menyraden läser `appLanguage`.
+Inte omtestad på enhet ännu.

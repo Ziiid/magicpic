@@ -31,7 +31,7 @@ public struct AIImageGenerator: Codable, Identifiable, Hashable {
             trimmed = "https://\(trimmed)"
         }
         guard var components = URLComponents(string: trimmed) else { return nil }
-        let prefix = String(localized: "Skapa en bild:", bundle: .module, locale: AppLanguage.current.locale)
+        let prefix = L("Skapa en bild:")
         var items = components.queryItems ?? []
         items.append(URLQueryItem(name: "q", value: "\(prefix) \(query)"))
         components.queryItems = items

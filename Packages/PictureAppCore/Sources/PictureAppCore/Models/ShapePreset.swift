@@ -63,18 +63,18 @@ public struct ShapePreset: Identifiable, Equatable {
     public var name: String {
         let locale = AppLanguage.current.locale
         switch id {
-        case "linkedinProfile": return String(localized: "LinkedIn-profil", bundle: .module, locale: locale)
-        case "avatarCircle": return String(localized: "Profilbild (cirkel)", bundle: .module, locale: locale)
-        case "cvSquare": return String(localized: "CV-kvadrat", bundle: .module, locale: locale)
-        case "instagramPost": return String(localized: "Instagram-inlägg", bundle: .module, locale: locale)
-        case "instagramStory": return String(localized: "Instagram-story", bundle: .module, locale: locale)
-        case "tiktok": return String(localized: "TikTok", bundle: .module, locale: locale)
-        case "youtubeThumbnail": return String(localized: "YouTube-miniatyr", bundle: .module, locale: locale)
-        case "ratio3x2": return String(localized: "3:2 liggande", bundle: .module, locale: locale)
-        case "ratio2x3": return String(localized: "2:3 stående", bundle: .module, locale: locale)
-        case "ratio4x3": return String(localized: "4:3 liggande", bundle: .module, locale: locale)
-        case "ratio3x4": return String(localized: "3:4 stående", bundle: .module, locale: locale)
-        case "ratio16x9": return String(localized: "16:9 bred", bundle: .module, locale: locale)
+        case "linkedinProfile": return L("LinkedIn-profil")
+        case "avatarCircle": return L("Profilbild (cirkel)")
+        case "cvSquare": return L("CV-kvadrat")
+        case "instagramPost": return L("Instagram-inlägg")
+        case "instagramStory": return L("Instagram-story")
+        case "tiktok": return L("TikTok")
+        case "youtubeThumbnail": return L("YouTube-miniatyr")
+        case "ratio3x2": return L("3:2 liggande")
+        case "ratio2x3": return L("2:3 stående")
+        case "ratio4x3": return L("4:3 liggande")
+        case "ratio3x4": return L("3:4 stående")
+        case "ratio16x9": return L("16:9 bred")
         default: return contour.label
         }
     }
@@ -89,10 +89,10 @@ public struct ShapePreset: Identifiable, Equatable {
             return "\(ratio) · \(Int(pixelSize.width)) × \(Int(pixelSize.height))"
         }
         if contour == .freeform {
-            return String(localized: "Rita en egen kontur", bundle: .module, locale: AppLanguage.current.locale)
+            return L("Rita en egen kontur")
         }
         guard let aspectRatio else {
-            return String(localized: "Bildens egna proportioner", bundle: .module, locale: AppLanguage.current.locale)
+            return L("Bildens egna proportioner")
         }
         return Self.reducedRatioText(width: aspectRatio, height: 1)
     }

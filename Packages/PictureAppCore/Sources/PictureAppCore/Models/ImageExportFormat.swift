@@ -14,8 +14,8 @@ public enum ImageExportFormat: String, CaseIterable, Identifiable {
     public var label: String {
         let locale = AppLanguage.current.locale
         switch self {
-        case .png: return String(localized: "PNG (med genomskinlighet)", bundle: .module, locale: locale)
-        case .jpeg: return String(localized: "JPEG (mindre fil)", bundle: .module, locale: locale)
+        case .png: return L("PNG (med genomskinlighet)")
+        case .jpeg: return L("JPEG (mindre fil)")
         }
     }
 

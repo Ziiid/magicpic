@@ -23,14 +23,14 @@ public enum OutputShape: String, CaseIterable, Identifiable, Equatable {
     public var label: String {
         let locale = AppLanguage.current.locale
         switch self {
-        case .rectangle: return String(localized: "Rektangel", bundle: .module, locale: locale)
-        case .square: return String(localized: "Kvadrat", bundle: .module, locale: locale)
-        case .roundedSquare: return String(localized: "Avrundad kvadrat", bundle: .module, locale: locale)
-        case .circle: return String(localized: "Cirkel", bundle: .module, locale: locale)
-        case .hexagon: return String(localized: "Hexagon", bundle: .module, locale: locale)
-        case .octagon: return String(localized: "Oktagon", bundle: .module, locale: locale)
-        case .star: return String(localized: "Stjärna", bundle: .module, locale: locale)
-        case .freeform: return String(localized: "Frihand", bundle: .module, locale: locale)
+        case .rectangle: return L("Rektangel")
+        case .square: return L("Kvadrat")
+        case .roundedSquare: return L("Avrundad kvadrat")
+        case .circle: return L("Cirkel")
+        case .hexagon: return L("Hexagon")
+        case .octagon: return L("Oktagon")
+        case .star: return L("Stjärna")
+        case .freeform: return L("Frihand")
         }
     }
 

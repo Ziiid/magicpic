@@ -2701,6 +2701,26 @@
           }
         }
       }
+    },
+    "Ny bild" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New image"
+          }
+        }
+      }
+    },
+    "Välj en annan bild" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose another image"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

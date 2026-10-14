@@ -798,7 +798,7 @@ public final class SearchViewModel: ObservableObject {
         } catch {
             // Prefix lokaliserat för sig, felet konkatenerat EFTER - se
             // `setCustomBackground(from:)`.
-            let prefix = String(localized: "Kunde inte läsa logotypen:", bundle: .module, locale: AppLanguage.current.locale)
+            let prefix = L("Kunde inte läsa logotypen:")
             errorMessage = "\(prefix) \(error.localizedDescription)"
         }
     }
@@ -855,7 +855,7 @@ public final class SearchViewModel: ObservableObject {
             // "%@"-platshållarform i String Catalog-JSON:en för en
             // interpolerad nyckel är onödigt bräckligt (fel form ger en
             // TYST fallback till svenska istället för ett fel).
-            let prefix = String(localized: "Kunde inte läsa bakgrundsbilden:", bundle: .module, locale: AppLanguage.current.locale)
+            let prefix = L("Kunde inte läsa bakgrundsbilden:")
             errorMessage = "\(prefix) \(error.localizedDescription)"
         }
     }
@@ -909,7 +909,7 @@ public final class SearchViewModel: ObservableObject {
             let image = try await Self.loadImage(from: url)
             loadImportedImage(image, name: url.lastPathComponent)
         } catch {
-            let prefix = String(localized: "Kunde inte läsa den släppta bilden:", bundle: .module, locale: AppLanguage.current.locale)
+            let prefix = L("Kunde inte läsa den släppta bilden:")
             errorMessage = "\(prefix) \(error.localizedDescription)"
         }
         isLoadingDetail = false
@@ -921,10 +921,10 @@ public final class SearchViewModel: ObservableObject {
     public func pasteFromClipboard() {
         errorMessage = nil
         guard let image = PlatformImage.fromPasteboard() else {
-            errorMessage = String(localized: "Hittade ingen bild i urklipp. Högerklicka bilden i webbläsaren och välj \"Kopiera bild\" först.", bundle: .module, locale: AppLanguage.current.locale)
+            errorMessage = L("Hittade ingen bild i urklipp. Högerklicka bilden i webbläsaren och välj \"Kopiera bild\" först.")
             return
         }
-        loadImportedImage(image, name: String(localized: "Inklistrad bild", bundle: .module, locale: AppLanguage.current.locale))
+        loadImportedImage(image, name: L("Inklistrad bild"))
     }
 
     public func loadImportedImage(_ image: PlatformImage, name: String) {
@@ -987,7 +987,7 @@ public final class SearchViewModel: ObservableObject {
     private enum LoadImageError: LocalizedError {
         case invalidImageData
         var errorDescription: String? {
-            String(localized: "Filen var inte en giltig bild.", bundle: .module, locale: AppLanguage.current.locale)
+            L("Filen var inte en giltig bild.")
         }
     }
 

@@ -10,7 +10,7 @@ public struct SubjectEffectService {
     public struct EffectError: LocalizedError {
         let message: String
         public var errorDescription: String? {
-            String(localized: String.LocalizationValue(message), bundle: .module, locale: AppLanguage.current.locale)
+            L(String.LocalizationValue(message))
         }
     }
 
