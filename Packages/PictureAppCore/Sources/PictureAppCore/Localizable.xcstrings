@@ -1,9 +1,7 @@
 {
   "sourceLanguage" : "sv",
   "strings" : {
-    "" : {
-
-    },
+    "" : {},
     "%lld av %lld motiv valda" : {
       "localizations" : {
         "en" : {
@@ -2690,6 +2688,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Zoom out"
+          }
+        }
+      }
+    },
+    "Vill du skapa en bild med AI? Lägg till en tjänst under kugghjulet." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Want to create an image with AI? Add a service under the gear icon."
           }
         }
       }

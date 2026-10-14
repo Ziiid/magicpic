@@ -410,6 +410,15 @@ public struct ContentView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
+
+            // Ingen AI-tjänst tillagd än - berätta var man gör det (kugghjulet).
+            if generatorsList.items.isEmpty {
+                Text(L("Vill du skapa en bild med AI? Lägg till en tjänst under kugghjulet."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            }
         } bottom: {
             // Alltid synlig (Urklipp-fliken är borttagen) - klistra in är
             // enda vägen på iPhone och reservvägen på Mac.
