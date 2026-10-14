@@ -70,6 +70,11 @@ public struct ShapePreset: Identifiable, Equatable {
         case "instagramStory": return String(localized: "Instagram-story", bundle: .module, locale: locale)
         case "tiktok": return String(localized: "TikTok", bundle: .module, locale: locale)
         case "youtubeThumbnail": return String(localized: "YouTube-miniatyr", bundle: .module, locale: locale)
+        case "ratio3x2": return String(localized: "3:2 liggande", bundle: .module, locale: locale)
+        case "ratio2x3": return String(localized: "2:3 stående", bundle: .module, locale: locale)
+        case "ratio4x3": return String(localized: "4:3 liggande", bundle: .module, locale: locale)
+        case "ratio3x4": return String(localized: "3:4 stående", bundle: .module, locale: locale)
+        case "ratio16x9": return String(localized: "16:9 bred", bundle: .module, locale: locale)
         default: return contour.label
         }
     }
@@ -126,6 +131,21 @@ public struct ShapePreset: Identifiable, Equatable {
         practical(id: "youtubeThumbnail", contour: .square, pixelSize: CGSize(width: 1280, height: 720)),
     ]
 
+    /// Vanliga bildproportioner utan fast pixelstorlek (fri upplösning, ingen
+    /// formsiluett) - för den som bara vill beskära till ett klassiskt
+    /// foto-/skärmformat. Positioneras med samma dra/zooma som alla former.
+    public static let ratioPresets: [ShapePreset] = [
+        ratio(id: "ratio3x2", width: 3, height: 2),
+        ratio(id: "ratio2x3", width: 2, height: 3),
+        ratio(id: "ratio4x3", width: 4, height: 3),
+        ratio(id: "ratio3x4", width: 3, height: 4),
+        ratio(id: "ratio16x9", width: 16, height: 9),
+    ]
+
+    private static func ratio(id: String, width: CGFloat, height: CGFloat) -> ShapePreset {
+        ShapePreset(id: id, contour: .square, aspectRatio: width / height, pixelSize: nil)
+    }
+
     private static func practical(id: String, contour: OutputShape, pixelSize: CGSize) -> ShapePreset {
         ShapePreset(id: id, contour: contour, aspectRatio: pixelSize.width / pixelSize.height, pixelSize: pixelSize)
     }
@@ -133,7 +153,7 @@ public struct ShapePreset: Identifiable, Equatable {
     /// Praktiska genvägar FÖRST (i den ordning de listas ovan), sedan de
     /// generiska geometriska formerna - visas i den ordningen i
     /// `ShapePickerView`s rutnät.
-    public static let all: [ShapePreset] = practicalPresets + genericPresets
+    public static let all: [ShapePreset] = practicalPresets + ratioPresets + genericPresets
 
     /// Standardvalet - motsvarar dagens `OutputShape.square` (se
     /// `SearchViewModel.shapePreset`s dokumentation för varför kvadrat,

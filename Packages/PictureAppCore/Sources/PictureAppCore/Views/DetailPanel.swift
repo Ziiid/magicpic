@@ -6,6 +6,7 @@ struct DetailPanel: View {
     @State private var showBackgroundImporter = false
     @State private var showAdjustments = false
     @State private var showEffects = false
+    @State private var showPresets = false
     @State private var showPhotoFilters = false
     @State private var showBackgroundStylePicker = false
     @State private var showShapePicker = false
@@ -327,6 +328,15 @@ struct DetailPanel: View {
             // exakt samma sak, en egen knapp för det var bara en
             // dubblett (rapporterat 2026-09-25).
             FlowLayout(horizontalSpacing: 8, verticalSpacing: 8) {
+                Button {
+                    showPresets = true
+                } label: {
+                    Label(L("Förval"), systemImage: "wand.and.stars")
+                }
+                .buttonStyle(.nativeToolbar)
+                .disabled(viewModel.originalImage == nil)
+                .help(L("Ett tryck sätter bakgrund, form och effekter."))
+
                 backgroundMenu
 
                 shapeMenu
@@ -433,6 +443,9 @@ struct DetailPanel: View {
             compactActionRow
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+                compactToolButton(L("Förval"), systemImage: "wand.and.stars", disabled: viewModel.originalImage == nil) {
+                    showPresets = true
+                }
                 compactToolButton(L("Bakgrund"), systemImage: "photo.fill", disabled: viewModel.originalImage == nil) {
                     showBackgroundStylePicker = true
                 }
@@ -599,6 +612,7 @@ struct DetailPanel: View {
             showPhotoFilters = false
             showAdjustments = false
             showEffects = false
+            showPresets = false
             showTextEditor = false
         }
         .onChange(of: showTextEditor) { _, isPresented in
@@ -668,6 +682,15 @@ struct DetailPanel: View {
                     loadPreviewMask: { await viewModel.previewMask() }
                 )
             }
+        }
+        .sheet(isPresented: $showPresets) {
+            QuickPresetsView(
+                onSelect: { preset in
+                    showPresets = false
+                    viewModel.applyQuickPreset(preset)
+                },
+                onDone: { showPresets = false }
+            )
         }
         .sheet(isPresented: $showEffects) {
             SubjectEffectsView(

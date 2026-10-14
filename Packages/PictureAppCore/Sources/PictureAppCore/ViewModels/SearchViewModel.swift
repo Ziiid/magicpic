@@ -696,6 +696,19 @@ public final class SearchViewModel: ObservableObject {
         }
     }
 
+    /// Tillämpar ett förval (bakgrund + form + effekter) i ETT undo-steg och
+    /// kör pipelinen - positionen nollställs så formen får en ren start.
+    public func applyQuickPreset(_ preset: QuickPreset) {
+        guard originalImage != nil else { return }
+        pushUndoSnapshot()
+        backgroundStyle = preset.backgroundStyle
+        shapePreset = ShapePreset.all.first { $0.id == preset.shapeID } ?? .square
+        subjectEffects = preset.effects
+        outputShapeTransform = .identity
+        lastCommittedTransform = .identity
+        removeBackground()
+    }
+
     /// Sätter skugga/kontur på motivet och kör om pipelinen (ett undo-steg).
     public func setSubjectEffects(_ effects: SubjectEffects) {
         guard effects != subjectEffects else { return }

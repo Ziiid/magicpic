@@ -2473,6 +2473,156 @@
           }
         }
       }
+    },
+    "Förval" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presets"
+          }
+        }
+      }
+    },
+    "Ett tryck sätter bakgrund, form och effekter." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One tap sets background, shape and effects."
+          }
+        }
+      }
+    },
+    "Ett tryck sätter bakgrund, form och effekter. Du kan justera sedan." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One tap sets background, shape and effects. You can adjust afterwards."
+          }
+        }
+      }
+    },
+    "Produktbild" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Product photo"
+          }
+        }
+      }
+    },
+    "Profilbild" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile picture"
+          }
+        }
+      }
+    },
+    "Klistermärke" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sticker"
+          }
+        }
+      }
+    },
+    "Vit bakgrund, kvadrat 1000 × 1000 och en mjuk skugga." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "White background, square 1000 × 1000 and a soft shadow."
+          }
+        }
+      }
+    },
+    "Rund bild 800 × 800 mot en mjuk gradient." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Round image 800 × 800 on a soft gradient."
+          }
+        }
+      }
+    },
+    "4:5 (1080 × 1350) med oskarp bakgrund." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4:5 (1080 × 1350) with a blurred background."
+          }
+        }
+      }
+    },
+    "Genomskinlig bakgrund med vit kant och skugga." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transparent background with a white outline and shadow."
+          }
+        }
+      }
+    },
+    "3:2 liggande" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3:2 landscape"
+          }
+        }
+      }
+    },
+    "2:3 stående" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2:3 portrait"
+          }
+        }
+      }
+    },
+    "4:3 liggande" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4:3 landscape"
+          }
+        }
+      }
+    },
+    "3:4 stående" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3:4 portrait"
+          }
+        }
+      }
+    },
+    "16:9 bred" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "16:9 widescreen"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
